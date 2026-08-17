@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agenda Compartilhável - Firebase</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 1em;
+            opacity: 0.9;
+        }
+
+        .mode-selector {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .mode-btn.active {
+            background: white;
+            color: #667eea;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .nav-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+
+        .nav-btn:hover {
+            background: #764ba2;
+        }
+
+        .current-month {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .weekday-header {
+            text-align: center;
+            font-weight: bold;
+            color: #667eea;
+            padding: 10px;
+            font-size: 0.95em;
+        }
+
+        .day-cell {
+            aspect-ratio: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            min-height: 100px;
+        }
+
+        .day-cell:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .day-cell.other-month {
+            background: #f5f5f5;
+            color: #ccc;
+        }
+
+        .day-cell.has-appointment {
+            border-color: #667eea;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+        }
+
+        .day-number {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .day-status {
+            font-size: 0.8em;
+            opacity: 0.7;
+        }
+
+        .time-slots {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .time-slot {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .time-slot.available {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-color: #2e7d32;
+        }
+
+        .time-slot.available:hover {
+            background: #2e7d32;
+            color: white;
+        }
+
+        .time-slot.booked {
+            background: #ffebee;
+            color: #c62828;
+            border-color: #c62828;
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+
+        .time-slot.locked {
+            background: #f5f5f5;
+            color: #999;
+            border-color: #ccc;
+            cursor: not-allowed;
+            text-decoration: line-through;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="email"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 1em;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background 0.3s;
+            width: 100%;
+        }
+
+        button:hover {
+            background: #764ba2;
+        }
+
+        .appointments-list {
+            background: #f9f9f9;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .appointment-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .appointment-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .appointment-time {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .appointment-name {
+            color: #333;
+            margin-top: 5px;
+        }
+
+        .appointment-email {
+            color: #999;
+            font-size: 0.9em;
+            margin-top: 3px;
+        }
+
+        .delete-btn {
+            background: #c62828;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            width: auto;
+        }
+
+        .delete-btn:hover {
+            background: #b71c1c;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .alert.show {
+            display: block;
+        }
+
+        .alert.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .alert.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+        }
+
+        .meeting-type {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .meeting-type.online {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .meeting-type.interno {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .meeting-type.externo {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .meeting-type.entrevista {
+            background: #f3e5f5;
+            color: #7b1fa2;
+            border-left: 4px solid #7b1fa2;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .calendar-grid {
+                gap: 5px;
+            }
+
+            .day-cell {
+                min-height: 80px;
+                padding: 8px;
+                font-size: 0.9em;
+            }
+
+            .time-slots {
+                grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            }
+
+            .appointment-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📅 Agenda Compartilhável</h1>
+            <p>Sincronizada em Tempo Real com Firebase</p>
+            <div class="mode-selector">
+                <button class="mode-btn active" onclick="switchMode('owner')">👨‍💼 Minha Agenda</button>
+                <button class="mode-btn" onclick="switchMode('vendor')">👥 Agendar Reunião</button>
+            </div>
+        </header>
+
+        <div class="content">
+            <!-- MODO PROPRIETÁRIO -->
+            <section id="owner" class="section active">
+                <div class="alert" id="ownerAlert"></div>
+
+                <div class="calendar-header">
+                    <div class="nav-buttons">
+                        <button class="nav-btn" onclick="previousMonth()">← Anterior</button>
+                        <button class="nav-btn" onclick="todayMonth()">Hoje</button>
+                        <button class="nav-btn" onclick="nextMonth()">Próximo →</button>
+                    </div>
+                    <div class="current-month" id="currentMonth"></div>
+                </div>
+
+                <div class="calendar-grid" id="calendarGrid"></div>
+
+                <div id="dayDetail" style="display: none;">
+                    <h3 id="selectedDate" style="margin-bottom: 20px; color: #667eea; font-size: 1.3em;"></h3>
+                    <div class="time-slots" id="timeSlotsContainer"></div>
+                    <button onclick="closeDetail()" style="background: #999;">Voltar</button>
+                </div>
+
+                <div class="appointments-list" id="appointmentsList" style="display: none;">
+                    <h3 style="margin-bottom: 20px; color: #333;">Reuniões Agendadas</h3>
+                    <div id="appointmentsContainer"></div>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #e8f5e9; border: 2px solid #2e7d32;"></div>
+                        <span><strong>Disponível</strong> - Horário aberto</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ffebee; border: 2px solid #c62828; text-decoration: line-through;"></div>
+                        <span><strong>Reservado</strong> - Reunião agendada</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f5f5f5; border: 2px solid #ccc; text-decoration: line-through;"></div>
+                        <span><strong>Bloqueado</strong> - Horário trancado</span>
+                    </div>
+                </div>
+
+                <div class="legend" style="margin-top: 20px;">
+                    <h4 style="grid-column: 1 / -1; margin-bottom: 10px; color: #333;">Tipos de Reunião</h4>
+                    <div class="legend-item">
+                        <div style="width: 30px; height: 30px; background: #e3f2fd; border: 2px solid #1976d2; border-radius: 4px;"></div>
+                        <span><strong>Online</strong> - Azul</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 30px; height: 30px; background: #ffebee; border: 2px solid #c62828; border-radius: 4px;"></div>
+                        <span><strong>Interno</strong> - Vermelho</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 30px; height: 30px; background: #e8f5e9; border: 2px solid #2e7d32; border-radius: 4px;"></div>
+                        <span><strong>Externo</strong> - Verde</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width: 30px; height: 30px; background: #f3e5f5; border: 2px solid #7b1fa2; border-radius: 4px;"></div>
+                        <span><strong>Entrevista</strong> - Roxo</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MODO VENDEDOR -->
+            <section id="vendor" class="section">
+                <div class="alert" id="vendorAlert"></div>
+
+                <div class="calendar-header">
+                    <div class="nav-buttons">
+                        <button class="nav-btn" onclick="vendorPreviousMonth()">← Anterior</button>
+                        <button class="nav-btn" onclick="vendorTodayMonth()">Hoje</button>
+                        <button class="nav-btn" onclick="vendorNextMonth()">Próximo →</button>
+                    </div>
+                    <div class="current-month" id="vendorCurrentMonth"></div>
+                </div>
+
+                <div class="calendar-grid" id="vendorCalendarGrid"></div>
+
+                <div id="vendorDayDetail" style="display: none;">
+                    <h3 id="vendorSelectedDate" style="margin-bottom: 20px; color: #667eea; font-size: 1.3em;"></h3>
+                    <div class="time-slots" id="vendorTimeSlotsContainer"></div>
+
+                    <div style="display: none;" id="vendorBookingForm">
+                        <h4 style="margin-top: 30px; margin-bottom: 15px; color: #333;">Agendar Reunião</h4>
+                        <div class="form-group">
+                            <label>Consultor *</label>
+                            <input type="text" id="vendorConsultor" placeholder="Nome do consultor">
+                        </div>
+                        <div class="form-group">
+                            <label>Nome do Cliente *</label>
+                            <input type="text" id="vendorClientName" placeholder="Nome do cliente">
+                        </div>
+                        <div class="form-group">
+                            <label>Email *</label>
+                            <input type="email" id="vendorEmail" placeholder="seu@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label>Formato da Reunião *</label>
+                            <select id="meetingFormat">
+                                <option value="">-- Selecione uma opção --</option>
+                                <option value="Online">Online</option>
+                                <option value="Interno">Interno</option>
+                                <option value="Externo">Externo</option>
+                                <option value="Entrevista">Entrevista</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Detalhes / Notas</label>
+                            <textarea id="meetingNotes" placeholder="Adicione informações sobre a reunião..." style="min-height: 100px;"></textarea>
+                        </div>
+                        <button onclick="confirmBooking()">Confirmar Agendamento</button>
+                    </div>
+
+                    <button onclick="closeVendorDetail()" style="background: #999; margin-top: 15px;">Voltar</button>
+                </div>
+
+                <div class="appointments-list" id="vendorAppointmentsList" style="display: none;">
+                    <h3 style="margin-bottom: 20px; color: #333;">Seus Agendamentos</h3>
+                    <div id="vendorAppointmentsContainer"></div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+
+    <script type="module">
+        import { firebaseConfig } from './config.js';
+
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = firebase.database(app);
+
+        let currentDate = new Date();
+        let vendorDate = new Date();
+        let selectedDay = null;
+        let selectedTime = null;
+        let vendorSelectedDay = null;
+        let vendorSelectedTime = null;
+
+        const BUSINESS_HOURS = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
+        let scheduleData = {
+            blockedTimes: {},
+            appointments: []
+        };
+
+        // Carregar dados do Firebase
+        function loadData() {
+            const ref = database.ref('schedule');
+            ref.on('value', (snapshot) => {
+                const data = snapshot.val() || {};
+                scheduleData = {
+                    blockedTimes: data.blockedTimes || {},
+                    appointments: data.appointments || []
+                };
+                updateAllViews();
+            });
+        }
+
+        // Salvar dados no Firebase
+        function saveData() {
+            database.ref('schedule').set(scheduleData);
+        }
+
+        // Atualizar todas as visualizações
+        function updateAllViews() {
+            renderOwnerCalendar();
+            renderVendorCalendar();
+            updateOwnerAppointmentsList();
+            updateVendorAppointmentsList();
+        }
+
+        // Iniciar
+        loadData();
+
+        // ===== MODO PROPRIETÁRIO =====
+        function renderOwnerCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const prevLastDay = new Date(year, month, 0);
+
+            const prevDays = firstDay.getDay();
+            const nextDays = 6 - lastDay.getDay();
+
+            document.getElementById('currentMonth').textContent =
+                firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            let html = '';
+            const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+            days.forEach(day => html += `<div class="weekday-header">${day}</div>`);
+
+            for (let i = prevDays - 1; i >= 0; i--) {
+                const day = prevLastDay.getDate() - i;
+                html += `<div class="day-cell other-month">${day}</div>`;
+            }
+
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateStr = formatDate(new Date(year, month, day));
+                const appointmentsToday = scheduleData.appointments.filter(a => a.date === dateStr);
+                const hasBlocked = scheduleData.blockedTimes[dateStr]?.length > 0;
+
+                let status = '';
+                let cellClass = 'day-cell';
+                if (appointmentsToday.length > 0) {
+                    status = `✓ ${appointmentsToday.length} reunião${appointmentsToday.length > 1 ? 'ões' : ''}`;
+                    cellClass += ' has-appointment';
+                } else if (hasBlocked) {
+                    status = '🔒 Bloqueado';
+                } else {
+                    status = '✓ Livre';
+                }
+
+                let colorIndicators = '';
+                if (appointmentsToday.length > 0) {
+                    const formats = {};
+                    appointmentsToday.forEach(a => {
+                        formats[a.format] = (formats[a.format] || 0) + 1;
+                    });
+                    colorIndicators = '<div style="display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap;">';
+                    if (formats['Online']) colorIndicators += `<div style="width: 8px; height: 8px; background: #1976d2; border-radius: 50%;"></div>`;
+                    if (formats['Interno']) colorIndicators += `<div style="width: 8px; height: 8px; background: #c62828; border-radius: 50%;"></div>`;
+                    if (formats['Externo']) colorIndicators += `<div style="width: 8px; height: 8px; background: #2e7d32; border-radius: 50%;"></div>`;
+                    if (formats['Entrevista']) colorIndicators += `<div style="width: 8px; height: 8px; background: #7b1fa2; border-radius: 50%;"></div>`;
+                    colorIndicators += '</div>';
+                }
+
+                html += `<div class="${cellClass}" onclick="selectDay('${dateStr}')">
+                    <div class="day-number">${day}</div>
+                    <div class="day-status">${status}</div>
+                    ${colorIndicators}
+                </div>`;
+            }
+
+            for (let day = 1; day <= nextDays; day++) {
+                html += `<div class="day-cell other-month">${day}</div>`;
+            }
+
+            document.getElementById('calendarGrid').innerHTML = html;
+        }
+
+        window.selectDay = function(dateStr) {
+            selectedDay = dateStr;
+            const dayDate = new Date(dateStr + 'T00:00:00');
+            document.getElementById('selectedDate').textContent =
+                dayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
+
+            renderTimeSlots(dateStr);
+            document.getElementById('calendarGrid').style.display = 'none';
+            document.getElementById('dayDetail').style.display = 'block';
+        }
+
+        function renderTimeSlots(dateStr) {
+            let html = '';
+            const blocked = scheduleData.blockedTimes[dateStr] || [];
+            const appointments = scheduleData.appointments.filter(a => a.date === dateStr);
+
+            BUSINESS_HOURS.forEach(time => {
+                const isBlocked = blocked.includes(time);
+                const isBooked = appointments.some(a => a.time === time);
+
+                let className = 'time-slot';
+                let text = time;
+
+                if (isBlocked) {
+                    className += ' locked';
+                } else if (isBooked) {
+                    className += ' booked';
+                    text = time + ' (Reservado)';
+                } else {
+                    className += ' available';
+                }
+
+                html += `<div class="${className}" onclick="toggleTimeSlot('${time}', this)">
+                    ${text}
+                </div>`;
+            });
+
+            document.getElementById('timeSlotsContainer').innerHTML = html;
+        }
+
+        window.toggleTimeSlot = function(time, element) {
+            if (!selectedDay) return;
+
+            if (!scheduleData.blockedTimes[selectedDay]) {
+                scheduleData.blockedTimes[selectedDay] = [];
+            }
+
+            const idx = scheduleData.blockedTimes[selectedDay].indexOf(time);
+            if (idx > -1) {
+                scheduleData.blockedTimes[selectedDay].splice(idx, 1);
+            } else {
+                scheduleData.blockedTimes[selectedDay].push(time);
+            }
+
+            saveData();
+            renderTimeSlots(selectedDay);
+            showAlert('Horário atualizado com sucesso!', 'success', 'ownerAlert');
+        };
+
+        function closeDetail() {
+            selectedDay = null;
+            selectedTime = null;
+            document.getElementById('calendarGrid').style.display = 'grid';
+            document.getElementById('dayDetail').style.display = 'none';
+            renderOwnerCalendar();
+        }
+
+        function updateOwnerAppointmentsList() {
+            const container = document.getElementById('appointmentsContainer');
+            if (scheduleData.appointments.length === 0) {
+                document.getElementById('appointmentsList').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('appointmentsList').style.display = 'block';
+
+            const sorted = [...scheduleData.appointments].sort((a, b) => {
+                return new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time);
+            });
+
+            let html = '';
+            sorted.forEach((apt, idx) => {
+                const dayDate = new Date(apt.date + 'T00:00:00');
+                const dayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+                const formatClass = apt.format ? apt.format.toLowerCase() : '';
+                const formatLabel = apt.format || 'Reunião';
+
+                html += `<div class="appointment-item">
+                    <div class="appointment-info">
+                        <div class="appointment-time">${dayName} às ${apt.time}</div>
+                        <div class="appointment-name">👤 Cliente: ${apt.clientName || 'N/A'}</div>
+                        <div class="appointment-email">💼 Consultor: ${apt.consultor || 'N/A'}</div>
+                        <div class="appointment-email">✉️ ${apt.email}</div>
+                        <div class="meeting-type ${formatClass}">📋 ${formatLabel}</div>
+                        ${apt.notes ? `<div style="color: #666; font-size: 0.9em; margin-top: 5px;">📝 ${apt.notes}</div>` : ''}
+                    </div>
+                    <button class="delete-btn" onclick="deleteAppointment(${idx})">Deletar</button>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        window.deleteAppointment = function(idx) {
+            if (confirm('Tem certeza que deseja deletar este agendamento?')) {
+                scheduleData.appointments.splice(idx, 1);
+                saveData();
+                updateOwnerAppointmentsList();
+                renderOwnerCalendar();
+                showAlert('Agendamento deletado!', 'success', 'ownerAlert');
+            }
+        };
+
+        // ===== MODO VENDEDOR =====
+        function renderVendorCalendar() {
+            const year = vendorDate.getFullYear();
+            const month = vendorDate.getMonth();
+
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const prevLastDay = new Date(year, month, 0);
+
+            const prevDays = firstDay.getDay();
+            const nextDays = 6 - lastDay.getDay();
+
+            document.getElementById('vendorCurrentMonth').textContent =
+                firstDay.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+
+            let html = '';
+            const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+            days.forEach(day => html += `<div class="weekday-header">${day}</div>`);
+
+            for (let i = prevDays - 1; i >= 0; i--) {
+                const day = prevLastDay.getDate() - i;
+                html += `<div class="day-cell other-month">${day}</div>`;
+            }
+
+            for (let day = 1; day <= lastDay.getDate(); day++) {
+                const dateStr = formatDate(new Date(year, month, day));
+                const dayDate = new Date(year, month, day);
+
+                if (dayDate < new Date().setHours(0,0,0,0)) {
+                    html += `<div class="day-cell other-month">${day}</div>`;
+                    continue;
+                }
+
+                const openSlots = BUSINESS_HOURS.filter(time => {
+                    const isBlocked = scheduleData.blockedTimes[dateStr]?.includes(time);
+                    const isBooked = scheduleData.appointments.some(a => a.date === dateStr && a.time === time);
+                    return !isBlocked && !isBooked;
+                });
+
+                const appointmentsToday = scheduleData.appointments.filter(a => a.date === dateStr);
+                let cellClass = 'day-cell';
+                if (appointmentsToday.length > 0) {
+                    cellClass += ' has-appointment';
+                }
+
+                let status = openSlots.length > 0 ? `${openSlots.length} livre` : 'Cheio';
+
+                let colorIndicators = '';
+                if (appointmentsToday.length > 0) {
+                    const formats = {};
+                    appointmentsToday.forEach(a => {
+                        formats[a.format] = (formats[a.format] || 0) + 1;
+                    });
+                    colorIndicators = '<div style="display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap;">';
+                    if (formats['Online']) colorIndicators += `<div style="width: 8px; height: 8px; background: #1976d2; border-radius: 50%;"></div>`;
+                    if (formats['Interno']) colorIndicators += `<div style="width: 8px; height: 8px; background: #c62828; border-radius: 50%;"></div>`;
+                    if (formats['Externo']) colorIndicators += `<div style="width: 8px; height: 8px; background: #2e7d32; border-radius: 50%;"></div>`;
+                    if (formats['Entrevista']) colorIndicators += `<div style="width: 8px; height: 8px; background: #7b1fa2; border-radius: 50%;"></div>`;
+                    colorIndicators += '</div>';
+                }
+
+                html += `<div class="${cellClass}" onclick="vendorSelectDay('${dateStr}')">
+                    <div class="day-number">${day}</div>
+                    <div class="day-status">${status}</div>
+                    ${colorIndicators}
+                </div>`;
+            }
+
+            for (let day = 1; day <= nextDays; day++) {
+                html += `<div class="day-cell other-month">${day}</div>`;
+            }
+
+            document.getElementById('vendorCalendarGrid').innerHTML = html;
+        }
+
+        window.vendorSelectDay = function(dateStr) {
+            vendorSelectedDay = dateStr;
+            const dayDate = new Date(dateStr + 'T00:00:00');
+            document.getElementById('vendorSelectedDate').textContent =
+                dayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
+
+            renderVendorTimeSlots(dateStr);
+            document.getElementById('vendorCalendarGrid').style.display = 'none';
+            document.getElementById('vendorDayDetail').style.display = 'block';
+        };
+
+        function renderVendorTimeSlots(dateStr) {
+            let html = '';
+            const blocked = scheduleData.blockedTimes[dateStr] || [];
+            const appointments = scheduleData.appointments.filter(a => a.date === dateStr);
+
+            BUSINESS_HOURS.forEach(time => {
+                const isBlocked = blocked.includes(time);
+                const isBooked = appointments.some(a => a.time === time);
+
+                let className = 'time-slot';
+                let text = time;
+
+                if (isBlocked) {
+                    className += ' locked';
+                    text = time + ' (Indisponível)';
+                } else if (isBooked) {
+                    className += ' booked';
+                    text = time + ' (Reservado)';
+                } else {
+                    className += ' available';
+                }
+
+                html += `<div class="${className}" onclick="${!isBlocked && !isBooked ? `vendorSelectTime('${time}', this)` : ''}" style="${isBlocked || isBooked ? 'cursor: not-allowed;' : ''}">
+                    ${text}
+                </div>`;
+            });
+
+            document.getElementById('vendorTimeSlotsContainer').innerHTML = html;
+        }
+
+        window.vendorSelectTime = function(time, element) {
+            vendorSelectedTime = time;
+            element.style.background = '#764ba2';
+            element.style.color = 'white';
+            document.getElementById('vendorBookingForm').style.display = 'block';
+        };
+
+        window.confirmBooking = function() {
+            const consultor = document.getElementById('vendorConsultor').value.trim();
+            const clientName = document.getElementById('vendorClientName').value.trim();
+            const email = document.getElementById('vendorEmail').value.trim();
+            const format = document.getElementById('meetingFormat').value.trim();
+            const notes = document.getElementById('meetingNotes').value.trim();
+
+            if (!consultor) {
+                showAlert('Por favor, digite o nome do consultor', 'error', 'vendorAlert');
+                return;
+            }
+
+            if (!clientName) {
+                showAlert('Por favor, digite o nome do cliente', 'error', 'vendorAlert');
+                return;
+            }
+
+            if (!email || !email.includes('@')) {
+                showAlert('Por favor, digite um email válido', 'error', 'vendorAlert');
+                return;
+            }
+
+            if (!format) {
+                showAlert('Por favor, selecione um formato de reunião', 'error', 'vendorAlert');
+                return;
+            }
+
+            const isBlocked = scheduleData.blockedTimes[vendorSelectedDay]?.includes(vendorSelectedTime);
+            const isBooked = scheduleData.appointments.some(a =>
+                a.date === vendorSelectedDay && a.time === vendorSelectedTime
+            );
+
+            if (isBlocked || isBooked) {
+                showAlert('Desculpe, este horário não está mais disponível', 'error', 'vendorAlert');
+                closeVendorDetail();
+                renderVendorCalendar();
+                return;
+            }
+
+            scheduleData.appointments.push({
+                date: vendorSelectedDay,
+                time: vendorSelectedTime,
+                consultor: consultor,
+                clientName: clientName,
+                email: email,
+                format: format,
+                notes: notes,
+                createdAt: new Date().toISOString()
+            });
+
+            saveData();
+            showAlert('Reunião agendada com sucesso! Verifique seu email.', 'success', 'vendorAlert');
+
+            document.getElementById('vendorConsultor').value = '';
+            document.getElementById('vendorClientName').value = '';
+            document.getElementById('vendorEmail').value = '';
+            document.getElementById('meetingFormat').value = '';
+            document.getElementById('meetingNotes').value = '';
+
+            closeVendorDetail();
+            renderVendorCalendar();
+            updateVendorAppointmentsList();
+            updateOwnerAppointmentsList();
+        };
+
+        function updateVendorAppointmentsList() {
+            const userAppointments = scheduleData.appointments
+                .filter(a => {
+                    const email = document.getElementById('vendorEmail').value.trim();
+                    return !email || a.email === email;
+                });
+
+            if (userAppointments.length === 0) {
+                document.getElementById('vendorAppointmentsList').style.display = 'none';
+                return;
+            }
+
+            document.getElementById('vendorAppointmentsList').style.display = 'block';
+
+            const sorted = [...userAppointments].sort((a, b) => {
+                return new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time);
+            });
+
+            let html = '';
+            sorted.forEach((apt) => {
+                const dayDate = new Date(apt.date + 'T00:00:00');
+                const dayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+                const formatClass = apt.format ? apt.format.toLowerCase() : '';
+                const formatLabel = apt.format || 'Reunião';
+
+                html += `<div class="appointment-item">
+                    <div class="appointment-info">
+                        <div class="appointment-time">${dayName} às ${apt.time}</div>
+                        <div class="appointment-name">👤 Cliente: ${apt.clientName || 'N/A'}</div>
+                        <div class="appointment-email">💼 Consultor: ${apt.consultor || 'N/A'}</div>
+                        <div class="meeting-type ${formatClass}">📋 ${formatLabel}</div>
+                        <div style="color: #999; font-size: 0.9em; margin-top: 5px;">Status: <span class="status-badge">Confirmado</span></div>
+                    </div>
+                </div>`;
+            });
+
+            document.getElementById('vendorAppointmentsContainer').innerHTML = html;
+        }
+
+        window.closeVendorDetail = function() {
+            vendorSelectedDay = null;
+            vendorSelectedTime = null;
+            document.getElementById('vendorCalendarGrid').style.display = 'grid';
+            document.getElementById('vendorDayDetail').style.display = 'none';
+            document.getElementById('vendorBookingForm').style.display = 'none';
+            renderVendorCalendar();
+        };
+
+        // ===== NAVEGAÇÃO =====
+        window.previousMonth = function() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            renderOwnerCalendar();
+        };
+
+        window.nextMonth = function() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            renderOwnerCalendar();
+        };
+
+        window.todayMonth = function() {
+            currentDate = new Date();
+            renderOwnerCalendar();
+        };
+
+        window.vendorPreviousMonth = function() {
+            vendorDate.setMonth(vendorDate.getMonth() - 1);
+            renderVendorCalendar();
+        };
+
+        window.vendorNextMonth = function() {
+            vendorDate.setMonth(vendorDate.getMonth() + 1);
+            renderVendorCalendar();
+        };
+
+        window.vendorTodayMonth = function() {
+            vendorDate = new Date();
+            renderVendorCalendar();
+        };
+
+        // ===== UTILITÁRIOS =====
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        window.switchMode = function(mode) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(mode).classList.add('active');
+
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+
+            if (mode === 'vendor') {
+                renderVendorCalendar();
+            } else {
+                renderOwnerCalendar();
+            }
+        };
+
+        function showAlert(message, type, elementId) {
+            const alert = document.getElementById(elementId);
+            alert.textContent = message;
+            alert.className = `alert ${type} show`;
+            setTimeout(() => {
+                alert.classList.remove('show');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>

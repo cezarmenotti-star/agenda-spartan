@@ -1,0 +1,23 @@
+{
+  "name": "agenda-compartilhavel",
+  "version": "1.0.0",
+  "description": "Agenda compartilhável sincronizada com Firebase em tempo real",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server",
+    "deploy-netlify": "netlify deploy --prod",
+    "deploy-firebase": "firebase deploy"
+  },
+  "keywords": [
+    "agenda",
+    "firebase",
+    "consultores",
+    "agendamento"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "firebase": "^10.7.0",
+    "http-server": "^14.1.1"
+  }
+}
