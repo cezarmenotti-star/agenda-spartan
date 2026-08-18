@@ -786,27 +786,40 @@
             border-left: 4px solid var(--neon-red);
         }
 
-        .legend {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
-            padding: 20px;
+        .legend-compact {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 16px;
+            padding: 10px 16px;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            margin-top: 30px;
+            border-radius: 8px;
+            margin-top: 24px;
+            font-size: 0.8em;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+            color: var(--text-secondary);
         }
 
-        .legend-item {
-            display: flex;
+        .legend-chip {
+            display: inline-flex;
             align-items: center;
-            gap: 10px;
+            gap: 6px;
+            white-space: nowrap;
         }
 
-        .legend-color {
-            width: 30px;
-            height: 30px;
-            border-radius: 4px;
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-sep {
+            width: 1px;
+            height: 14px;
+            background: var(--border-color);
         }
 
         .meeting-type {
@@ -1300,39 +1313,15 @@
                     <div id="appointmentsContainer"></div>
                 </div>
 
-                <div class="legend">
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: rgba(var(--grad-start-rgb),0.08); border: 2px solid var(--neon-green);"></div>
-                        <span><strong>Disponível</strong> - Horário aberto</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: rgba(var(--grad-end-rgb),0.08); border: 2px solid var(--neon-red); text-decoration: line-through;"></div>
-                        <span><strong>Reservado</strong> - Reunião agendada</span>
-                    </div>
-                    <div class="legend-item">
-                        <div class="legend-color" style="background: var(--other-month-bg); border: 2px solid var(--border-color); text-decoration: line-through;"></div>
-                        <span><strong>Bloqueado</strong> - Horário trancado</span>
-                    </div>
-                </div>
-
-                <div class="legend" style="margin-top: 20px;">
-                    <h4 style="grid-column: 1 / -1; margin-bottom: 10px; color: var(--text-primary);">Tipos de Reunião</h4>
-                    <div class="legend-item">
-                        <div style="width: 30px; height: 30px; background: rgba(var(--grad-start-rgb),0.1); border: 2px solid var(--neon-blue); border-radius: 4px;"></div>
-                        <span><strong>Online</strong> - Azul</span>
-                    </div>
-                    <div class="legend-item">
-                        <div style="width: 30px; height: 30px; background: rgba(var(--grad-end-rgb),0.08); border: 2px solid var(--neon-red); border-radius: 4px;"></div>
-                        <span><strong>Interno</strong> - Vermelho</span>
-                    </div>
-                    <div class="legend-item">
-                        <div style="width: 30px; height: 30px; background: rgba(var(--grad-start-rgb),0.08); border: 2px solid var(--neon-green); border-radius: 4px;"></div>
-                        <span><strong>Externo</strong> - Verde</span>
-                    </div>
-                    <div class="legend-item">
-                        <div style="width: 30px; height: 30px; background: rgba(var(--grad-end-rgb),0.1); border: 2px solid var(--neon-violet); border-radius: 4px;"></div>
-                        <span><strong>Entrevista</strong> - Roxo</span>
-                    </div>
+                <div class="legend-compact">
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-green);"></i>Disponível</span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-red);"></i>Reservado</span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--text-muted);"></i>Bloqueado</span>
+                    <span class="legend-sep"></span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-blue);"></i>Online</span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-red);"></i>Interno</span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-green);"></i>Externo</span>
+                    <span class="legend-chip"><i class="legend-dot" style="background: var(--neon-violet);"></i>Entrevista</span>
                 </div>
             </section>
 
