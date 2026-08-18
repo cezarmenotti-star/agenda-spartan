@@ -21,7 +21,7 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800;900&family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -30,8 +30,8 @@
         }
 
         :root {
-            --font-display: 'Orbitron', 'Rajdhani', 'Segoe UI', sans-serif;
-            --font-body: 'Rajdhani', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --font-display: 'Poppins', 'Segoe UI', sans-serif;
+            --font-body: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 
             --grad-start: #0891b2;
             --grad-end: #c026d3;
@@ -508,8 +508,8 @@
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 700;
             font-size: 0.85em;
-            letter-spacing: 0.5px;
-            font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
+            letter-spacing: 0.3px;
+            font-family: var(--font-body);
         }
 
         .time-slot.available {
@@ -1300,7 +1300,6 @@
     <div class="container">
         <header>
             <h1>📅 Agenda Spartan</h1>
-            <p>Sincronizada em Tempo Real com Firebase</p>
         </header>
 
         <div class="content">
