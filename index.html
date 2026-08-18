@@ -393,6 +393,88 @@
             background: #b71c1c;
         }
 
+        /* ===== CADASTRO DE CONSULTORES ===== */
+        .consultor-form {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            margin-bottom: 25px;
+        }
+
+        .consultor-form .form-group {
+            flex: 1;
+            min-width: 200px;
+            margin-bottom: 0;
+        }
+
+        .consultor-form button {
+            width: auto;
+            padding: 12px 25px;
+            white-space: nowrap;
+        }
+
+        .consultor-item {
+            background: var(--card-bg-alt);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .consultor-item.inactive {
+            opacity: 0.55;
+            border-left-color: var(--text-muted);
+        }
+
+        .consultor-info {
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .consultor-name {
+            font-weight: bold;
+            color: var(--text-primary);
+            font-size: 1.05em;
+        }
+
+        .consultor-email {
+            color: var(--text-muted);
+            font-size: 0.9em;
+            margin-top: 3px;
+        }
+
+        .consultor-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .consultor-actions button {
+            width: auto;
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        .toggle-btn.active {
+            background: #2e7d32;
+        }
+
+        .toggle-btn.inactive {
+            background: #999999;
+        }
+
+        .empty-note {
+            text-align: center;
+            color: var(--text-muted);
+            padding: 25px 0;
+        }
+
         .alert {
             padding: 15px;
             border-radius: 6px;
@@ -779,6 +861,7 @@
             <div class="mode-selector">
                 <button class="mode-btn active" onclick="switchMode('owner')">👨‍💼 Minha Agenda</button>
                 <button class="mode-btn" onclick="switchMode('vendor')">👥 Agendar Reunião</button>
+                <button class="mode-btn" onclick="switchMode('consultants')">🧑‍💼 Consultores</button>
                 <button class="mode-btn" onclick="switchMode('dashboard')">📊 Dashboard</button>
             </div>
         </header>
@@ -869,7 +952,9 @@
                         <h4 style="margin-top: 30px; margin-bottom: 15px; color: var(--text-primary);">Agendar Reunião</h4>
                         <div class="form-group">
                             <label>Consultor *</label>
-                            <input type="text" id="vendorConsultor" placeholder="Nome do consultor">
+                            <select id="vendorConsultor">
+                                <option value="">-- Selecione um consultor --</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label>Nome do Cliente *</label>
@@ -903,6 +988,27 @@
                     <h3 style="margin-bottom: 20px; color: var(--text-primary);">Seus Agendamentos</h3>
                     <div id="vendorAppointmentsContainer"></div>
                 </div>
+            </section>
+
+            <!-- MODO CONSULTORES -->
+            <section id="consultants" class="section">
+                <div class="alert" id="consultantsAlert"></div>
+
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">Cadastro de Consultores</h3>
+
+                <div class="consultor-form">
+                    <div class="form-group">
+                        <label>Nome do Consultor *</label>
+                        <input type="text" id="newConsultorName" placeholder="Nome completo">
+                    </div>
+                    <div class="form-group">
+                        <label>Email (opcional)</label>
+                        <input type="email" id="newConsultorEmail" placeholder="email@exemplo.com">
+                    </div>
+                    <button onclick="addConsultor()">+ Adicionar</button>
+                </div>
+
+                <div id="consultoresContainer"></div>
             </section>
 
             <!-- MODO DASHBOARD -->
@@ -1076,7 +1182,8 @@
 
         let scheduleData = {
             blockedTimes: {},
-            appointments: []
+            appointments: [],
+            consultores: []
         };
 
         // ===== HORÁRIO / DURAÇÃO DAS REUNIÕES =====
@@ -1131,7 +1238,8 @@
                 const data = snapshot.val() || {};
                 scheduleData = {
                     blockedTimes: data.blockedTimes || {},
-                    appointments: data.appointments || []
+                    appointments: data.appointments || [],
+                    consultores: data.consultores || []
                 };
                 updateAllViews();
             });
@@ -1148,6 +1256,8 @@
             renderVendorCalendar();
             updateOwnerAppointmentsList();
             updateVendorAppointmentsList();
+            renderConsultores();
+            populateVendorConsultorSelect();
             renderDashboard();
         }
 
@@ -1370,6 +1480,95 @@
             }
         };
 
+        // ===== CADASTRO DE CONSULTORES =====
+        function getActiveConsultores() {
+            return (scheduleData.consultores || []).filter(c => c.ativo);
+        }
+
+        function renderConsultores() {
+            const container = document.getElementById('consultoresContainer');
+            if (!container) return;
+
+            const list = scheduleData.consultores || [];
+            if (list.length === 0) {
+                container.innerHTML = '<p class="empty-note">Nenhum consultor cadastrado ainda. Adicione o primeiro acima.</p>';
+                return;
+            }
+
+            const sorted = [...list].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+            container.innerHTML = sorted.map(c => `
+                <div class="consultor-item ${c.ativo ? '' : 'inactive'}">
+                    <div class="consultor-info">
+                        <div class="consultor-name">${c.nome}</div>
+                        ${c.email ? `<div class="consultor-email">✉️ ${c.email}</div>` : ''}
+                    </div>
+                    <div class="consultor-actions">
+                        <button class="toggle-btn ${c.ativo ? 'active' : 'inactive'}" onclick="toggleConsultorAtivo('${c.id}')">${c.ativo ? 'Ativo' : 'Inativo'}</button>
+                        <button class="delete-btn" onclick="deleteConsultor('${c.id}')">Deletar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.addConsultor = function() {
+            const nameInput = document.getElementById('newConsultorName');
+            const emailInput = document.getElementById('newConsultorEmail');
+            const nome = nameInput.value.trim();
+            const email = emailInput.value.trim();
+
+            if (!nome) {
+                showAlert('Digite o nome do consultor', 'error', 'consultantsAlert');
+                return;
+            }
+
+            const exists = (scheduleData.consultores || []).some(c => c.nome.toLowerCase() === nome.toLowerCase());
+            if (exists) {
+                showAlert('Já existe um consultor cadastrado com esse nome', 'error', 'consultantsAlert');
+                return;
+            }
+
+            if (!scheduleData.consultores) scheduleData.consultores = [];
+            scheduleData.consultores.push({
+                id: 'c' + Date.now() + Math.random().toString(36).slice(2, 7),
+                nome: nome,
+                email: email,
+                ativo: true
+            });
+
+            saveData();
+            nameInput.value = '';
+            emailInput.value = '';
+            showAlert('Consultor cadastrado com sucesso!', 'success', 'consultantsAlert');
+        };
+
+        window.toggleConsultorAtivo = function(id) {
+            const c = (scheduleData.consultores || []).find(x => x.id === id);
+            if (!c) return;
+            c.ativo = !c.ativo;
+            saveData();
+            showAlert(c.ativo ? 'Consultor reativado!' : 'Consultor desativado (some do formulário de agendamento).', 'success', 'consultantsAlert');
+        };
+
+        window.deleteConsultor = function(id) {
+            if (confirm('Tem certeza que deseja remover este consultor do cadastro? O histórico de reuniões já criadas não é afetado.')) {
+                scheduleData.consultores = (scheduleData.consultores || []).filter(x => x.id !== id);
+                saveData();
+                showAlert('Consultor removido!', 'success', 'consultantsAlert');
+            }
+        };
+
+        function populateVendorConsultorSelect() {
+            const select = document.getElementById('vendorConsultor');
+            if (!select) return;
+            const current = select.value;
+            const active = getActiveConsultores().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+            select.innerHTML = '<option value="">-- Selecione um consultor --</option>' +
+                active.map(c => `<option value="${c.nome}">${c.nome}</option>`).join('');
+
+            if (active.some(c => c.nome === current)) select.value = current;
+        }
+
         // ===== MODO VENDEDOR =====
         function renderVendorCalendar() {
             const year = vendorDate.getFullYear();
@@ -1498,7 +1697,7 @@
             const notes = document.getElementById('meetingNotes').value.trim();
 
             if (!consultor) {
-                showAlert('Por favor, digite o nome do consultor', 'error', 'vendorAlert');
+                showAlert('Por favor, selecione um consultor', 'error', 'vendorAlert');
                 return;
             }
 
@@ -1659,6 +1858,8 @@
                 renderVendorCalendar();
             } else if (mode === 'dashboard') {
                 renderDashboard();
+            } else if (mode === 'consultants') {
+                renderConsultores();
             } else {
                 renderOwnerCalendar();
             }
