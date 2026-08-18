@@ -401,24 +401,27 @@
         }
 
         .nav-btn {
-            background: linear-gradient(135deg, var(--grad-start) 0%, var(--grad-end) 100%);
-            color: #05060f;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 8px 14px;
+            border-radius: 6px;
             cursor: pointer;
             font-family: var(--font-body);
-            font-size: 0.95em;
+            font-size: 0.8em;
             font-weight: 700;
             letter-spacing: 0.5px;
             text-transform: uppercase;
-            box-shadow: 0 0 14px rgba(var(--grad-start-rgb),0.4), 0 0 22px rgba(var(--grad-end-rgb),0.25);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: none;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .nav-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 0 20px rgba(var(--grad-start-rgb),0.55), 0 0 32px rgba(var(--grad-end-rgb),0.35);
+            color: var(--grad-start);
+            border-color: var(--grad-start);
+            background: rgba(var(--grad-start-rgb), 0.06);
+            box-shadow: 0 0 10px rgba(var(--grad-start-rgb),0.2);
+            transform: translateY(-1px);
         }
 
         .current-month {
