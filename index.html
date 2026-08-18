@@ -1460,12 +1460,27 @@
             <section id="dashboard" class="section active">
                 <div class="dashboard-filters">
                     <div class="filter-group">
+                        <label>Período</label>
+                        <div class="view-mode-switcher" id="dashPeriodSwitcher">
+                            <button class="view-mode-btn active" data-period="month" onclick="setDashPeriodMode('month')">Mensal</button>
+                            <button class="view-mode-btn" data-period="day" onclick="setDashPeriodMode('day')">Diário</button>
+                        </div>
+                    </div>
+                    <div class="filter-group" id="dashMonthStartGroup">
                         <label>Mês inicial</label>
                         <input type="month" id="dashMonthStart">
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group" id="dashMonthEndGroup">
                         <label>Mês final</label>
                         <input type="month" id="dashMonthEnd">
+                    </div>
+                    <div class="filter-group" id="dashDateStartGroup" style="display: none;">
+                        <label>Data inicial</label>
+                        <input type="date" id="dashDateStart">
+                    </div>
+                    <div class="filter-group" id="dashDateEndGroup" style="display: none;">
+                        <label>Data final</label>
+                        <input type="date" id="dashDateEnd">
                     </div>
                     <div class="filter-group">
                         <label>Consultor</label>
@@ -2714,7 +2729,34 @@
             return months;
         }
 
+        function listDaysInRange(startDateStr, endDateStr) {
+            const days = [];
+            let d = new Date(startDateStr + 'T00:00:00');
+            const end = new Date(endDateStr + 'T00:00:00');
+            while (d <= end) {
+                days.push(formatDate(d));
+                d.setDate(d.getDate() + 1);
+            }
+            return days;
+        }
+
+        function dayLabel(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        }
+
         let dashboardFiltersInitialized = false;
+        let dashPeriodMode = 'month';
+
+        window.setDashPeriodMode = function(mode) {
+            dashPeriodMode = mode;
+            document.querySelectorAll('#dashPeriodSwitcher .view-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.period === mode));
+            document.getElementById('dashMonthStartGroup').style.display = mode === 'month' ? '' : 'none';
+            document.getElementById('dashMonthEndGroup').style.display = mode === 'month' ? '' : 'none';
+            document.getElementById('dashDateStartGroup').style.display = mode === 'day' ? '' : 'none';
+            document.getElementById('dashDateEndGroup').style.display = mode === 'day' ? '' : 'none';
+            renderDashboard();
+        };
 
         function initDashboardFilters() {
             const now = new Date();
@@ -2727,10 +2769,21 @@
             if (!startInput.value) startInput.value = startKey;
             if (!endInput.value) endInput.value = endKey;
 
+            const dateStartInput = document.getElementById('dashDateStart');
+            const dateEndInput = document.getElementById('dashDateEnd');
+            if (!dateEndInput.value) dateEndInput.value = formatDate(now);
+            if (!dateStartInput.value) {
+                const twoWeeksAgo = new Date(now);
+                twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 13);
+                dateStartInput.value = formatDate(twoWeeksAgo);
+            }
+
             if (dashboardFiltersInitialized) return;
             dashboardFiltersInitialized = true;
             startInput.addEventListener('change', renderDashboard);
             endInput.addEventListener('change', renderDashboard);
+            dateStartInput.addEventListener('change', renderDashboard);
+            dateEndInput.addEventListener('change', renderDashboard);
             document.getElementById('dashConsultorFilter').addEventListener('change', renderDashboard);
         }
 
@@ -2763,16 +2816,42 @@
             initDashboardFilters();
             populateConsultorFilter();
 
-            const startKey = document.getElementById('dashMonthStart').value || '0000-00';
-            const endKey = document.getElementById('dashMonthEnd').value || '9999-99';
             const consultorFilter = document.getElementById('dashConsultorFilter').value;
+            let filtered, buckets, bucketLabels, bucketKeyOf;
 
-            const filtered = scheduleData.appointments.filter(a => {
-                const mk = monthKey(a.date);
-                if (mk < startKey || mk > endKey) return false;
-                if (consultorFilter && (a.consultor || '').trim() !== consultorFilter) return false;
-                return true;
-            });
+            if (dashPeriodMode === 'day') {
+                const rawStart = document.getElementById('dashDateStart').value || formatDate(new Date());
+                const rawEnd = document.getElementById('dashDateEnd').value || formatDate(new Date());
+                const lo = rawStart <= rawEnd ? rawStart : rawEnd;
+                const hi = rawStart <= rawEnd ? rawEnd : rawStart;
+
+                filtered = scheduleData.appointments.filter(a => {
+                    if (a.date < lo || a.date > hi) return false;
+                    if (consultorFilter && (a.consultor || '').trim() !== consultorFilter) return false;
+                    return true;
+                });
+
+                buckets = listDaysInRange(lo, hi);
+                bucketLabels = buckets.map(dayLabel);
+                bucketKeyOf = (dateStr) => dateStr;
+            } else {
+                const startKey = document.getElementById('dashMonthStart').value || '0000-00';
+                const endKey = document.getElementById('dashMonthEnd').value || '9999-99';
+
+                filtered = scheduleData.appointments.filter(a => {
+                    const mk = monthKey(a.date);
+                    if (mk < startKey || mk > endKey) return false;
+                    if (consultorFilter && (a.consultor || '').trim() !== consultorFilter) return false;
+                    return true;
+                });
+
+                buckets = listMonthsInRange(
+                    startKey === '0000-00' ? monthKey(new Date().toISOString()) : startKey,
+                    endKey === '9999-99' ? monthKey(new Date().toISOString()) : endKey
+                );
+                bucketLabels = buckets.map(monthLabel);
+                bucketKeyOf = monthKey;
+            }
 
             // ----- Cards de resumo -----
             const totals = { total: filtered.length, feita: 0, noShow: 0, remarcado: 0, proposta: 0, propostaValor: 0, fechado: 0, fechadoValor: 0, indicacoes: 0 };
@@ -2806,13 +2885,7 @@
                 </div>`
             ).join('');
 
-            // ----- Gráficos por mês (small multiples) -----
-            const months = listMonthsInRange(
-                startKey === '0000-00' ? monthKey(new Date().toISOString()) : startKey,
-                endKey === '9999-99' ? monthKey(new Date().toISOString()) : endKey
-            );
-            const monthLabels = months.map(monthLabel);
-
+            // ----- Gráficos por período (small multiples; por mês ou por dia, conforme o filtro) -----
             const metricDefs = [
                 { key: 'feita', title: '✅ Reunião Feita', color: dashColor('feita') },
                 { key: 'noShow', title: '🚫 No Show', color: dashColor('noShow') },
@@ -2835,8 +2908,8 @@
             `).join('');
 
             metricDefs.forEach(m => {
-                const monthCounts = months.map(mk => filtered.filter(a => monthKey(a.date) === mk && getChecklist(a)[m.key]).length);
-                let totalText = `Total: ${monthCounts.reduce((a, b) => a + b, 0)}`;
+                const bucketCounts = buckets.map(bk => filtered.filter(a => bucketKeyOf(a.date) === bk && getChecklist(a)[m.key]).length);
+                let totalText = `Total: ${bucketCounts.reduce((a, b) => a + b, 0)}`;
                 if (m.key === 'proposta' && totals.propostaValor) totalText += ` · ${formatCurrencyBRL(totals.propostaValor)}`;
                 if (m.key === 'fechado' && totals.fechadoValor) totalText += ` · ${formatCurrencyBRL(totals.fechadoValor)}`;
                 document.getElementById(`dashTotal-${m.key}`).textContent = totalText;
@@ -2844,9 +2917,9 @@
                 renderOrUpdateChart(`chartMonth-${m.key}`, {
                     type: 'bar',
                     data: {
-                        labels: monthLabels,
+                        labels: bucketLabels,
                         datasets: [{
-                            data: monthCounts,
+                            data: bucketCounts,
                             backgroundColor: m.color,
                             borderRadius: 4,
                             maxBarThickness: 36
