@@ -331,7 +331,52 @@
         .sidebar-bottom {
             margin-top: auto;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            justify-content: space-between;
+            padding: 8px 4px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .sidebar-user-name {
+            font-size: 0.72em;
+            font-weight: 600;
+            color: var(--text-secondary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        :root[data-sidebar-collapsed="true"] .sidebar-user-name {
+            display: none;
+        }
+
+        .sidebar-logout-btn {
+            background: transparent;
+            border: 1px solid var(--neon-red);
+            color: var(--neon-red);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            font-size: 0.9em;
+            padding: 0;
+            flex-shrink: 0;
+            box-shadow: none;
+        }
+
+        .sidebar-logout-btn:hover {
+            background: var(--neon-red);
+            color: #05060f;
+            box-shadow: 0 0 12px var(--neon-red);
+            transform: none;
         }
 
         /* ===== SELETOR DE VISUALIZAÇÃO (DIA/SEMANA/MÊS) ===== */
@@ -926,6 +971,50 @@
         .checklist-badge.indicacao { background: var(--grad-start); }
 
         /* ===== MODAL DE CHECKLIST / EDIÇÃO ===== */
+        /* ===== LOGIN ===== */
+        .login-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--body-bg-start) 0%, var(--body-bg-end) 100%);
+        }
+
+        .login-overlay.hide {
+            display: none;
+        }
+
+        .login-box {
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            max-width: 380px;
+            width: 100%;
+            padding: 32px 28px;
+            box-shadow: 0 0 60px var(--shadow-lg);
+            animation: slideDown 0.3s ease;
+        }
+
+        .login-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 1.6em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--grad-start), var(--grad-end));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 24px;
+        }
+
         .modal-overlay {
             display: none;
             position: fixed;
@@ -1288,7 +1377,25 @@
     </style>
 </head>
 <body>
-    <div class="app-shell">
+    <!-- Tela de login -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-box">
+            <div class="login-brand">📅 <span>Agenda Spartan</span></div>
+            <div class="alert" id="loginAlert"></div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="loginEmail" placeholder="seu@email.com" autocomplete="username">
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <label>Senha</label>
+                <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+            </div>
+            <button onclick="doLogin()">Entrar</button>
+            <button class="btn-secondary" style="margin-top: 10px;" onclick="doForgotPassword()">Esqueci minha senha</button>
+        </div>
+    </div>
+
+    <div class="app-shell" id="appShell" style="display: none;">
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-top">
                 <div class="sidebar-brand">
@@ -1314,12 +1421,16 @@
                 <button class="sidebar-btn" onclick="switchMode('noshow')">
                     <span class="sidebar-btn-icon">🚫</span><span class="sidebar-btn-label">No Show</span>
                 </button>
-                <button class="sidebar-btn" onclick="switchMode('consultants')">
+                <button class="sidebar-btn admin-only" onclick="switchMode('consultants')">
                     <span class="sidebar-btn-icon">🧑‍💼</span><span class="sidebar-btn-label">Consultores</span>
                 </button>
             </nav>
 
             <div class="sidebar-bottom">
+                <div class="sidebar-user">
+                    <span class="sidebar-user-name" id="sidebarUserName"></span>
+                    <button class="sidebar-logout-btn" onclick="doLogout()" title="Sair">🚪</button>
+                </div>
                 <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Alternar tema claro/escuro">🌙</button>
             </div>
         </aside>
@@ -1404,6 +1515,7 @@
                             <select id="vendorConsultor">
                                 <option value="">-- Selecione um consultor --</option>
                             </select>
+                            <div id="vendorConsultorLocked" style="display: none; padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--input-bg); color: var(--text-primary); font-weight: 600;"></div>
                         </div>
                         <div class="form-group">
                             <label>Nome do Cliente *</label>
@@ -1500,7 +1612,7 @@
                         <label>Data final</label>
                         <input type="date" id="dashDateEnd">
                     </div>
-                    <div class="filter-group">
+                    <div class="filter-group admin-only" id="dashConsultorFilterGroup">
                         <label>Consultor</label>
                         <select id="dashConsultorFilter">
                             <option value="">Todos os consultores</option>
@@ -1627,6 +1739,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
     <!-- Chart.js (gráficos do Dashboard) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
@@ -1671,6 +1784,91 @@
         // Inicializar Firebase
         const app = firebase.initializeApp(firebaseConfig);
         const database = firebase.database(app);
+        const auth = firebase.auth(app);
+
+        // ===== AUTENTICAÇÃO / PAPÉIS (admin vê tudo, consultor só vê o próprio) =====
+        let currentUid = null;
+        let currentRole = null; // 'admin' | 'consultant'
+        let currentConsultorNome = null;
+
+        window.doLogin = function() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            if (!email || !password) {
+                showAlert('Preencha email e senha.', 'error', 'loginAlert');
+                return;
+            }
+            auth.signInWithEmailAndPassword(email, password).catch((err) => {
+                showAlert('Não foi possível entrar: e-mail ou senha incorretos.', 'error', 'loginAlert');
+            });
+        };
+
+        window.doForgotPassword = function() {
+            const email = document.getElementById('loginEmail').value.trim();
+            if (!email) {
+                showAlert('Digite seu email no campo acima e clique de novo.', 'error', 'loginAlert');
+                return;
+            }
+            auth.sendPasswordResetEmail(email).then(() => {
+                showAlert('Enviamos um link para redefinir sua senha por email.', 'success', 'loginAlert');
+            }).catch(() => {
+                showAlert('Não foi possível enviar o email. Confira o endereço digitado.', 'error', 'loginAlert');
+            });
+        };
+
+        window.doLogout = function() {
+            auth.signOut();
+        };
+
+        auth.onAuthStateChanged((user) => {
+            const overlay = document.getElementById('loginOverlay');
+            const shell = document.getElementById('appShell');
+
+            if (!user) {
+                currentUid = null;
+                currentRole = null;
+                currentConsultorNome = null;
+                teardownDataListeners();
+                overlay.classList.remove('hide');
+                shell.style.display = 'none';
+                return;
+            }
+
+            database.ref('roles/' + user.uid).once('value').then((snap) => {
+                const roleData = snap.val();
+                if (!roleData) {
+                    showAlert('Sua conta ainda não tem acesso liberado. Fale com o administrador.', 'error', 'loginAlert');
+                    auth.signOut();
+                    return;
+                }
+                currentUid = user.uid;
+                currentRole = roleData.role;
+                currentConsultorNome = roleData.nome || user.email;
+
+                overlay.classList.add('hide');
+                shell.style.display = '';
+
+                const nameEl = document.getElementById('sidebarUserName');
+                if (nameEl) nameEl.textContent = currentConsultorNome + (currentRole === 'admin' ? ' (admin)' : '');
+
+                applyRoleUI();
+                loadData();
+            });
+        });
+
+        function applyRoleUI() {
+            const isAdmin = currentRole === 'admin';
+            document.querySelectorAll('.admin-only').forEach(el => {
+                el.style.display = isAdmin ? '' : 'none';
+            });
+            const vendorConsultorSelect = document.getElementById('vendorConsultor');
+            const vendorConsultorLocked = document.getElementById('vendorConsultorLocked');
+            if (vendorConsultorSelect && vendorConsultorLocked) {
+                vendorConsultorSelect.style.display = isAdmin ? '' : 'none';
+                vendorConsultorLocked.style.display = isAdmin ? 'none' : '';
+                if (!isAdmin) vendorConsultorLocked.textContent = currentConsultorNome;
+            }
+        }
 
         let currentDate = new Date();
         let vendorDate = new Date();
@@ -1696,7 +1894,8 @@
         let scheduleData = {
             blockedTimes: {},
             appointments: [],
-            consultores: []
+            consultores: [],
+            occupiedSlots: {}
         };
 
         // ===== HORÁRIO / DURAÇÃO DAS REUNIÕES =====
@@ -1725,6 +1924,13 @@
             }) || null;
         }
 
+        // Um consultor só enxerga os próprios agendamentos; occupiedSlots avisa quando o horário já
+        // está ocupado por OUTRO consultor, sem revelar de quem é (evita conflito de agenda sem vazar dado alheio)
+        function isSlotOccupiedByAnyone(dateStr, time) {
+            if (scheduleData.occupiedSlots[dateStr] && scheduleData.occupiedSlots[dateStr][time]) return true;
+            return !!getAppointmentCoveringTime(dateStr, time);
+        }
+
         // Verifica se a hora inteira (30 em 30 min) a partir de "time" está livre (sem bloqueio nem reunião)
         function isRangeAvailable(dateStr, time) {
             const blocked = scheduleData.blockedTimes[dateStr] || [];
@@ -1732,9 +1938,32 @@
             for (let m = startMin; m < startMin + MEETING_DURATION_MINUTES; m += 30) {
                 const slot = minutesToTime(m);
                 if (blocked.includes(slot)) return false;
-                if (getAppointmentCoveringTime(dateStr, slot)) return false;
+                if (isSlotOccupiedByAnyone(dateStr, slot)) return false;
             }
             return true;
+        }
+
+        function markOccupiedSlots(dateStr, time) {
+            const startMin = timeToMinutes(time);
+            for (let m = startMin; m < startMin + MEETING_DURATION_MINUTES; m += 30) {
+                database.ref(`schedule/occupiedSlots/${dateStr}/${minutesToTime(m)}`).set(true);
+            }
+        }
+
+        function freeOccupiedSlotsIfUnused(deletedApt) {
+            const startMin = timeToMinutes(deletedApt.time);
+            for (let m = startMin; m < startMin + MEETING_DURATION_MINUTES; m += 30) {
+                const slot = minutesToTime(m);
+                const slotMin = m;
+                const stillCovered = scheduleData.appointments.some(a => {
+                    if (a === deletedApt || a.date !== deletedApt.date) return false;
+                    const s = timeToMinutes(a.time);
+                    return slotMin >= s && slotMin < s + MEETING_DURATION_MINUTES;
+                });
+                if (!stillCovered) {
+                    database.ref(`schedule/occupiedSlots/${deletedApt.date}/${slot}`).remove();
+                }
+            }
         }
 
         // Gera um link de Google Meet pronto para uso (sala instantânea, sem necessidade de login)
@@ -1744,23 +1973,70 @@
             return `https://meet.google.com/${randStr(3)}-${randStr(4)}-${randStr(3)}`;
         }
 
-        // Carregar dados do Firebase
-        function loadData() {
-            const ref = database.ref('schedule');
-            ref.on('value', (snapshot) => {
-                const data = snapshot.val() || {};
-                scheduleData = {
-                    blockedTimes: data.blockedTimes || {},
-                    appointments: data.appointments || [],
-                    consultores: data.consultores || []
-                };
-                updateAllViews();
-            });
+        // Carregar dados do Firebase (escopo conforme o papel: admin vê tudo, consultor só o próprio)
+        // Referências com listener ativo — precisam ser desligadas ao trocar de usuário/sair,
+        // senão listeners da sessão anterior continuam disparando e corrompem os dados na tela.
+        let activeListenerRefs = [];
+
+        function teardownDataListeners() {
+            activeListenerRefs.forEach((ref) => ref.off('value'));
+            activeListenerRefs = [];
         }
 
-        // Salvar dados no Firebase
-        function saveData() {
-            database.ref('schedule').set(scheduleData);
+        function loadData() {
+            teardownDataListeners();
+
+            const blockedRef = database.ref('schedule/blockedTimes');
+            blockedRef.on('value', (snap) => {
+                scheduleData.blockedTimes = snap.val() || {};
+                updateAllViews();
+            });
+            activeListenerRefs.push(blockedRef);
+
+            const consultoresRef = database.ref('schedule/consultores');
+            consultoresRef.on('value', (snap) => {
+                scheduleData.consultores = snap.val() || [];
+                updateAllViews();
+            });
+            activeListenerRefs.push(consultoresRef);
+
+            const occupiedRef = database.ref('schedule/occupiedSlots');
+            occupiedRef.on('value', (snap) => {
+                scheduleData.occupiedSlots = snap.val() || {};
+                updateAllViews();
+            });
+            activeListenerRefs.push(occupiedRef);
+
+            const roleAtLoad = currentRole;
+            const uidAtLoad = currentUid;
+            const apptsPath = roleAtLoad === 'admin' ? 'schedule/appointments' : `schedule/appointments/${uidAtLoad}`;
+            const apptsRef = database.ref(apptsPath);
+            apptsRef.on('value', (snap) => {
+                const val = snap.val() || {};
+                const flat = [];
+                if (roleAtLoad === 'admin') {
+                    Object.entries(val).forEach(([ownerUid, byKey]) => {
+                        Object.entries(byKey || {}).forEach(([key, apt]) => {
+                            flat.push(Object.assign({}, apt, { _uid: ownerUid, _key: key }));
+                        });
+                    });
+                } else {
+                    Object.entries(val).forEach(([key, apt]) => {
+                        flat.push(Object.assign({}, apt, { _uid: uidAtLoad, _key: key }));
+                    });
+                }
+                scheduleData.appointments = flat;
+                updateAllViews();
+            });
+            activeListenerRefs.push(apptsRef);
+        }
+
+        function saveBlockedTimes() {
+            database.ref('schedule/blockedTimes').set(scheduleData.blockedTimes);
+        }
+
+        function saveConsultores() {
+            database.ref('schedule/consultores').set(scheduleData.consultores);
         }
 
         // Atualizar todas as visualizações
@@ -1973,6 +2249,11 @@
         window.toggleTimeSlot = function(time, element) {
             if (!selectedDay) return;
 
+            if (currentRole !== 'admin') {
+                showAlert('Apenas o administrador pode bloquear/desbloquear horários.', 'error', 'ownerAlert');
+                return;
+            }
+
             if (getAppointmentCoveringTime(selectedDay, time)) {
                 showAlert('Este horário está ocupado por uma reunião agendada.', 'error', 'ownerAlert');
                 return;
@@ -1989,7 +2270,7 @@
                 scheduleData.blockedTimes[selectedDay].push(time);
             }
 
-            saveData();
+            saveBlockedTimes();
             renderTimeSlots(selectedDay);
             showAlert('Horário atualizado com sucesso!', 'success', 'ownerAlert');
         };
@@ -2035,6 +2316,7 @@
 
             if (pending.length === 0) {
                 document.getElementById('appointmentsList').style.display = 'none';
+                container.innerHTML = '';
                 return;
             }
 
@@ -2121,11 +2403,12 @@
         }
 
         window.deleteAppointment = function(idx) {
+            const apt = scheduleData.appointments[idx];
+            if (!apt) return;
             if (confirm('Tem certeza que deseja deletar este agendamento?')) {
-                scheduleData.appointments.splice(idx, 1);
-                saveData();
-                updateOwnerAppointmentsList();
-                renderOwnerCalendar();
+                database.ref(`schedule/appointments/${apt._uid}/${apt._key}`).remove().then(() => {
+                    freeOccupiedSlotsIfUnused(apt);
+                });
                 showAlert('Agendamento deletado!', 'success', 'ownerAlert');
             }
         };
@@ -2151,8 +2434,10 @@
                     <div class="consultor-info">
                         <div class="consultor-name">${c.nome}</div>
                         ${c.email ? `<div class="consultor-email">✉️ ${c.email}</div>` : ''}
+                        ${c.uid ? '<div class="consultor-email" style="color: var(--neon-green);">🔑 Login ativo</div>' : '<div class="consultor-email" style="color: var(--neon-yellow);">⚠️ Sem login ainda</div>'}
                     </div>
                     <div class="consultor-actions">
+                        ${!c.uid ? `<button class="toggle-btn active" onclick="createConsultorLogin('${c.id}')">Criar login</button>` : ''}
                         <button class="toggle-btn ${c.ativo ? 'active' : 'inactive'}" onclick="toggleConsultorAtivo('${c.id}')">${c.ativo ? 'Ativo' : 'Inativo'}</button>
                         <button class="delete-btn" onclick="deleteConsultor('${c.id}')">Deletar</button>
                     </div>
@@ -2185,26 +2470,69 @@
                 ativo: true
             });
 
-            saveData();
+            saveConsultores();
             nameInput.value = '';
             emailInput.value = '';
-            showAlert('Consultor cadastrado com sucesso!', 'success', 'consultantsAlert');
+            showAlert('Consultor cadastrado com sucesso! Clique em "Criar login" na lista para liberar o acesso dele.', 'success', 'consultantsAlert');
         };
 
         window.toggleConsultorAtivo = function(id) {
             const c = (scheduleData.consultores || []).find(x => x.id === id);
             if (!c) return;
             c.ativo = !c.ativo;
-            saveData();
+            saveConsultores();
             showAlert(c.ativo ? 'Consultor reativado!' : 'Consultor desativado (some do formulário de agendamento).', 'success', 'consultantsAlert');
         };
 
         window.deleteConsultor = function(id) {
             if (confirm('Tem certeza que deseja remover este consultor do cadastro? O histórico de reuniões já criadas não é afetado.')) {
                 scheduleData.consultores = (scheduleData.consultores || []).filter(x => x.id !== id);
-                saveData();
+                saveConsultores();
                 showAlert('Consultor removido!', 'success', 'consultantsAlert');
             }
+        };
+
+        // Cria a conta de login do consultor (email/senha) sem derrubar a sessão do admin,
+        // usando a API REST do Identity Toolkit em vez do SDK (que trocaria o usuário logado).
+        window.createConsultorLogin = function(id) {
+            const c = (scheduleData.consultores || []).find(x => x.id === id);
+            if (!c) return;
+            if (!c.email) {
+                showAlert('Cadastre um email para esse consultor antes de criar o login.', 'error', 'consultantsAlert');
+                return;
+            }
+            if (!confirm(`Criar login para ${c.nome} (${c.email})? Um email para definir a senha será enviado para ele(a).`)) return;
+
+            const tempPassword = 'Tmp!' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6).toUpperCase() + '9';
+
+            fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: c.email, password: tempPassword, returnSecureToken: true })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.localId) {
+                    const msg = (data.error && data.error.message) || 'erro desconhecido';
+                    showAlert('Não foi possível criar o login: ' + msg + '. Talvez já exista uma conta com esse email.', 'error', 'consultantsAlert');
+                    return;
+                }
+                const uid = data.localId;
+                return database.ref('roles/' + uid).set({ role: 'consultant', nome: c.nome, email: c.email }).then(() => {
+                    c.uid = uid;
+                    saveConsultores();
+                    return fetch(`https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${firebaseConfig.apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ requestType: 'PASSWORD_RESET', email: c.email })
+                    });
+                }).then(() => {
+                    showAlert(`Login criado! Enviamos um email para ${c.email} definir a senha.`, 'success', 'consultantsAlert');
+                });
+            })
+            .catch(() => {
+                showAlert('Erro de rede ao criar o login. Tente novamente.', 'error', 'consultantsAlert');
+            });
         };
 
         function populateVendorConsultorSelect() {
@@ -2416,7 +2744,9 @@
         };
 
         window.confirmBooking = function() {
-            const consultor = document.getElementById('vendorConsultor').value.trim();
+            const consultor = currentRole === 'admin'
+                ? document.getElementById('vendorConsultor').value.trim()
+                : currentConsultorNome;
             const clientName = document.getElementById('vendorClientName').value.trim();
             const email = document.getElementById('vendorEmail').value.trim();
             const format = document.getElementById('meetingFormat').value.trim();
@@ -2450,6 +2780,15 @@
                 return;
             }
 
+            const targetUid = currentRole === 'admin'
+                ? (scheduleData.consultores.find(c => c.nome === consultor) || {}).uid
+                : currentUid;
+
+            if (!targetUid) {
+                showAlert('Esse consultor ainda não tem login criado. Crie o login dele em Consultores antes de agendar.', 'error', 'vendorAlert');
+                return;
+            }
+
             const newAppointment = {
                 date: vendorSelectedDay,
                 time: vendorSelectedTime,
@@ -2468,9 +2807,13 @@
                 successMessage = 'Reunião online agendada com sucesso! Link do Google Meet gerado.';
             }
 
-            scheduleData.appointments.push(newAppointment);
-
-            saveData();
+            // captura os valores agora — vendorSelectedDay/vendorSelectedTime são zerados
+            // logo abaixo, antes deste callback assíncrono rodar
+            const bookedDay = vendorSelectedDay;
+            const bookedTime = vendorSelectedTime;
+            database.ref(`schedule/appointments/${targetUid}`).push(newAppointment).then(() => {
+                markOccupiedSlots(bookedDay, bookedTime);
+            });
             showAlert(successMessage, 'success', 'vendorAlert');
 
             document.getElementById('vendorConsultor').value = '';
@@ -2700,12 +3043,6 @@
                 return;
             }
 
-            apt.consultor = document.getElementById('modalConsultor').value.trim();
-            apt.clientName = clientName;
-            apt.email = email;
-            apt.format = document.getElementById('modalFormat').value;
-            apt.notes = document.getElementById('modalNotes').value.trim();
-
             const indicacaoChecked = document.getElementById('checkIndicacao').checked;
             let indicacaoQtd = parseInt(document.getElementById('indicationQty').value, 10);
             if (!Number.isFinite(indicacaoQtd) || indicacaoQtd < 0) indicacaoQtd = 0;
@@ -2713,21 +3050,31 @@
             const propostaChecked = document.getElementById('checkProposta').checked;
             const fechadoChecked = document.getElementById('checkFechado').checked;
 
-            apt.checklist = {
-                feita: document.getElementById('checkFeita').checked,
-                noShow: document.getElementById('checkNoShow').checked,
-                remarcado: document.getElementById('checkRemarcado').checked,
-                proposta: propostaChecked,
-                propostaValor: propostaChecked ? parseCurrencyValue(document.getElementById('propostaValor').value) : 0,
-                fechado: fechadoChecked,
-                fechadoValor: fechadoChecked ? parseCurrencyValue(document.getElementById('fechadoValor').value) : 0,
-                indicacao: indicacaoChecked,
-                indicacaoQtd: indicacaoChecked ? (indicacaoQtd || 1) : 0
+            const updates = {
+                consultor: document.getElementById('modalConsultor').value.trim(),
+                clientName: clientName,
+                email: email,
+                format: document.getElementById('modalFormat').value,
+                notes: document.getElementById('modalNotes').value.trim(),
+                checklist: {
+                    feita: document.getElementById('checkFeita').checked,
+                    noShow: document.getElementById('checkNoShow').checked,
+                    remarcado: document.getElementById('checkRemarcado').checked,
+                    proposta: propostaChecked,
+                    propostaValor: propostaChecked ? parseCurrencyValue(document.getElementById('propostaValor').value) : 0,
+                    fechado: fechadoChecked,
+                    fechadoValor: fechadoChecked ? parseCurrencyValue(document.getElementById('fechadoValor').value) : 0,
+                    indicacao: indicacaoChecked,
+                    indicacaoQtd: indicacaoChecked ? (indicacaoQtd || 1) : 0
+                }
             };
 
-            saveData();
-            closeAppointmentModal();
-            showAlert('Agendamento atualizado com sucesso!', 'success', 'ownerAlert');
+            database.ref(`schedule/appointments/${apt._uid}/${apt._key}`).update(updates).then(() => {
+                closeAppointmentModal();
+                showAlert('Agendamento atualizado com sucesso!', 'success', 'ownerAlert');
+            }).catch(() => {
+                showAlert('Não foi possível salvar. Tente novamente.', 'error', 'ownerAlert');
+            });
         };
 
         // ===== DASHBOARD =====
