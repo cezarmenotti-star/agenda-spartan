@@ -109,7 +109,6 @@
         .container {
             flex: 1;
             min-width: 0;
-            max-width: 1200px;
             background: var(--container-bg);
             border: 1px solid var(--border-color);
             border-radius: 14px;
@@ -1127,6 +1126,13 @@
             margin-top: 6px;
         }
 
+        .stat-tile-pct {
+            font-size: 0.45em;
+            font-weight: 700;
+            opacity: 0.7;
+            vertical-align: middle;
+        }
+
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1151,8 +1157,10 @@
             color: var(--text-primary);
             margin-bottom: 12px;
             display: flex;
+            flex-wrap: wrap;
             justify-content: space-between;
             align-items: baseline;
+            gap: 4px 10px;
         }
 
         .chart-card-title .chart-total {
@@ -1303,6 +1311,9 @@
                 <button class="sidebar-btn" onclick="switchMode('completed')">
                     <span class="sidebar-btn-icon">✅</span><span class="sidebar-btn-label">Realizados</span>
                 </button>
+                <button class="sidebar-btn" onclick="switchMode('noshow')">
+                    <span class="sidebar-btn-icon">🚫</span><span class="sidebar-btn-label">No Show</span>
+                </button>
                 <button class="sidebar-btn" onclick="switchMode('consultants')">
                     <span class="sidebar-btn-icon">🧑‍💼</span><span class="sidebar-btn-label">Consultores</span>
                 </button>
@@ -1433,6 +1444,13 @@
                 <h3 style="margin-bottom: 20px; color: var(--text-primary);">Reuniões Realizadas</h3>
                 <p id="completedAppointmentsEmpty" class="empty-note" style="display: none;">Nenhuma reunião marcada como "Reunião feita" ainda. Marque pelo checklist, em Minha Agenda, clicando no nome do cliente.</p>
                 <div id="completedAppointmentsContainer"></div>
+            </section>
+
+            <!-- MODO NO SHOW -->
+            <section id="noshow" class="section">
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">Clientes No Show (follow-up)</h3>
+                <p id="noshowAppointmentsEmpty" class="empty-note" style="display: none;">Nenhum cliente marcado como "No show" ainda. Marque pelo checklist, em Minha Agenda, clicando no nome do cliente.</p>
+                <div id="noshowAppointmentsContainer"></div>
             </section>
 
             <!-- MODO CONSULTORES -->
@@ -1751,6 +1769,7 @@
             renderVendorCalendar();
             updateOwnerAppointmentsList();
             updateCompletedAppointmentsList();
+            updateNoShowAppointmentsList();
             updateVendorAppointmentsList();
             renderConsultores();
             populateVendorConsultorSelect();
@@ -2009,7 +2028,10 @@
 
         function updateOwnerAppointmentsList() {
             const container = document.getElementById('appointmentsContainer');
-            const pending = scheduleData.appointments.filter(a => !getChecklist(a).feita);
+            const pending = scheduleData.appointments.filter(a => {
+                const c = getChecklist(a);
+                return !c.feita && !c.noShow;
+            });
 
             if (pending.length === 0) {
                 document.getElementById('appointmentsList').style.display = 'none';
@@ -2040,6 +2062,31 @@
             document.getElementById('completedAppointmentsEmpty').style.display = 'none';
 
             const sorted = [...completed].sort((a, b) => {
+                return new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time);
+            });
+
+            container.innerHTML = sorted.map(buildAppointmentCardHtml).join('');
+        }
+
+        function updateNoShowAppointmentsList() {
+            const container = document.getElementById('noshowAppointmentsContainer');
+            if (!container) return;
+
+            // No show que também foi marcado como "feita" fica só em Realizados, não duplica aqui
+            const noShows = scheduleData.appointments.filter(a => {
+                const c = getChecklist(a);
+                return c.noShow && !c.feita;
+            });
+
+            if (noShows.length === 0) {
+                document.getElementById('noshowAppointmentsEmpty').style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }
+
+            document.getElementById('noshowAppointmentsEmpty').style.display = 'none';
+
+            const sorted = [...noShows].sort((a, b) => {
                 return new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time);
             });
 
@@ -2550,6 +2597,8 @@
                 renderConsultores();
             } else if (mode === 'completed') {
                 updateCompletedAppointmentsList();
+            } else if (mode === 'noshow') {
+                updateNoShowAppointmentsList();
             } else {
                 renderOwnerCalendar();
             }
@@ -2866,20 +2915,22 @@
             });
             const conversao = totals.feita > 0 ? Math.round((totals.fechado / totals.feita) * 100) : 0;
 
+            const pctOfTotal = (count) => totals.total > 0 ? Math.round((count / totals.total) * 100) : 0;
+
             const tilesEl = document.getElementById('dashStatTiles');
             const tiles = [
                 ['Agendamentos', totals.total, 'var(--grad-start)'],
-                ['Reunião feita', totals.feita, dashColor('feita')],
-                ['No show', totals.noShow, dashColor('noShow')],
-                ['Remarcado', totals.remarcado, dashColor('remarcado')],
-                ['Proposta', totals.proposta, dashColor('proposta'), totals.propostaValor ? formatCurrencyBRL(totals.propostaValor) : null, 'var(--neon-blue)'],
-                ['Fechado', totals.fechado, dashColor('fechado'), totals.fechadoValor ? formatCurrencyBRL(totals.fechadoValor) : null, 'var(--neon-green)'],
+                ['Reunião feita', totals.feita, dashColor('feita'), null, null, pctOfTotal(totals.feita)],
+                ['No show', totals.noShow, dashColor('noShow'), null, null, pctOfTotal(totals.noShow)],
+                ['Remarcado', totals.remarcado, dashColor('remarcado'), null, null, pctOfTotal(totals.remarcado)],
+                ['Proposta', totals.proposta, dashColor('proposta'), totals.propostaValor ? formatCurrencyBRL(totals.propostaValor) : null, 'var(--neon-blue)', pctOfTotal(totals.proposta)],
+                ['Fechado', totals.fechado, dashColor('fechado'), totals.fechadoValor ? formatCurrencyBRL(totals.fechadoValor) : null, 'var(--neon-green)', pctOfTotal(totals.fechado)],
                 ['Indicações', totals.indicacoes, dashColor('indicacao')],
                 ['Conversão (Fechado/Feita)', conversao + '%', 'var(--grad-end)']
             ];
-            tilesEl.innerHTML = tiles.map(([label, value, color, subValue, subColor]) =>
+            tilesEl.innerHTML = tiles.map(([label, value, color, subValue, subColor, pct]) =>
                 `<div class="stat-tile" style="border-top-color: ${color};">
-                    <div class="stat-tile-value" style="color: ${color};">${value}</div>
+                    <div class="stat-tile-value" style="color: ${color};">${value}${pct !== undefined ? ` <span class="stat-tile-pct">${pct}%</span>` : ''}</div>
                     <div class="stat-tile-label">${label}</div>
                     ${subValue ? `<div class="stat-tile-sub" style="color: ${subColor};">${subValue}</div>` : ''}
                 </div>`
