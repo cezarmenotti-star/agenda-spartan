@@ -1084,7 +1084,7 @@
 
         .stat-tiles {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
             margin-bottom: 30px;
         }
@@ -1095,7 +1095,7 @@
             border-radius: 10px;
             padding: 18px;
             text-align: center;
-            border-top: 2px solid var(--grad-start);
+            border-top: 3px solid var(--grad-start);
             box-shadow: 0 2px 8px rgba(0,0,0,0.06);
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -1174,6 +1174,16 @@
         @media (max-width: 1024px) {
             .calendar-grid {
                 gap: 8px;
+            }
+
+            .stat-tiles {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stat-tiles {
+                grid-template-columns: 1fr;
             }
         }
 
@@ -1275,7 +1285,10 @@
             </div>
 
             <nav class="sidebar-nav">
-                <button class="sidebar-btn active" onclick="switchMode('owner')">
+                <button class="sidebar-btn active" onclick="switchMode('dashboard')">
+                    <span class="sidebar-btn-icon">📊</span><span class="sidebar-btn-label">Dashboard</span>
+                </button>
+                <button class="sidebar-btn" onclick="switchMode('owner')">
                     <span class="sidebar-btn-icon">👨‍💼</span><span class="sidebar-btn-label">Minha Agenda</span>
                 </button>
                 <button class="sidebar-btn" onclick="switchMode('vendor')">
@@ -1286,9 +1299,6 @@
                 </button>
                 <button class="sidebar-btn" onclick="switchMode('consultants')">
                     <span class="sidebar-btn-icon">🧑‍💼</span><span class="sidebar-btn-label">Consultores</span>
-                </button>
-                <button class="sidebar-btn" onclick="switchMode('dashboard')">
-                    <span class="sidebar-btn-icon">📊</span><span class="sidebar-btn-label">Dashboard</span>
                 </button>
             </nav>
 
@@ -1304,7 +1314,7 @@
 
         <div class="content">
             <!-- MODO PROPRIETÁRIO -->
-            <section id="owner" class="section active">
+            <section id="owner" class="section">
                 <div class="alert" id="ownerAlert"></div>
 
                 <div class="calendar-header">
@@ -1441,7 +1451,7 @@
             </section>
 
             <!-- MODO DASHBOARD -->
-            <section id="dashboard" class="section">
+            <section id="dashboard" class="section active">
                 <div class="dashboard-filters">
                     <div class="filter-group">
                         <label>Mês inicial</label>
@@ -2729,17 +2739,17 @@
 
             const tilesEl = document.getElementById('dashStatTiles');
             const tiles = [
-                ['Agendamentos', totals.total],
-                ['Reunião feita', totals.feita],
-                ['No show', totals.noShow],
-                ['Remarcado', totals.remarcado],
-                ['Proposta', totals.proposta],
-                ['Fechado', totals.fechado],
-                ['Indicações', totals.indicacoes],
-                ['Conversão (Fechado/Feita)', conversao + '%']
+                ['Agendamentos', totals.total, 'var(--grad-start)'],
+                ['Reunião feita', totals.feita, dashColor('feita')],
+                ['No show', totals.noShow, dashColor('noShow')],
+                ['Remarcado', totals.remarcado, dashColor('remarcado')],
+                ['Proposta', totals.proposta, dashColor('proposta')],
+                ['Fechado', totals.fechado, dashColor('fechado')],
+                ['Indicações', totals.indicacoes, dashColor('indicacao')],
+                ['Conversão (Fechado/Feita)', conversao + '%', 'var(--grad-end)']
             ];
-            tilesEl.innerHTML = tiles.map(([label, value]) =>
-                `<div class="stat-tile"><div class="stat-tile-value">${value}</div><div class="stat-tile-label">${label}</div></div>`
+            tilesEl.innerHTML = tiles.map(([label, value, color]) =>
+                `<div class="stat-tile" style="border-top-color: ${color};"><div class="stat-tile-value" style="color: ${color};">${value}</div><div class="stat-tile-label">${label}</div></div>`
             ).join('');
 
             // ----- Gráficos por mês (small multiples) -----
