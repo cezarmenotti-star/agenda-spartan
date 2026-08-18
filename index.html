@@ -1121,6 +1121,12 @@
             margin-top: 4px;
         }
 
+        .stat-tile-sub {
+            font-size: 0.85em;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1556,9 +1562,17 @@
                     <input type="checkbox" id="checkProposta" onclick="event.stopPropagation()">
                     <label onclick="event.stopPropagation()">Proposta</label>
                 </div>
+                <div class="indication-qty-wrap" id="propostaValorWrap">
+                    <label for="propostaValor" style="font-size: 0.85em;">Valor do crédito (R$)</label>
+                    <input type="text" inputmode="decimal" id="propostaValor" placeholder="R$ 0,00" oninput="maskCurrencyInput(this)" style="width: 100%;">
+                </div>
                 <div class="checklist-checkbox-row" onclick="document.getElementById('checkFechado').click()">
                     <input type="checkbox" id="checkFechado" onclick="event.stopPropagation()">
                     <label onclick="event.stopPropagation()">Fechado</label>
+                </div>
+                <div class="indication-qty-wrap" id="fechadoValorWrap">
+                    <label for="fechadoValor" style="font-size: 0.85em;">Valor do crédito (R$)</label>
+                    <input type="text" inputmode="decimal" id="fechadoValor" placeholder="R$ 0,00" oninput="maskCurrencyInput(this)" style="width: 100%;">
                 </div>
                 <div class="checklist-checkbox-row" onclick="document.getElementById('checkIndicacao').click()">
                     <input type="checkbox" id="checkIndicacao" onclick="event.stopPropagation()">
@@ -2024,7 +2038,9 @@
                 noShow: false,
                 remarcado: false,
                 proposta: false,
+                propostaValor: 0,
                 fechado: false,
+                fechadoValor: 0,
                 indicacao: false,
                 indicacaoQtd: 0
             }, apt.checklist || {});
@@ -2036,8 +2052,8 @@
             if (c.feita) badges += `<span class="checklist-badge feita">✅ Reunião feita</span>`;
             if (c.noShow) badges += `<span class="checklist-badge noshow">🚫 No show</span>`;
             if (c.remarcado) badges += `<span class="checklist-badge remarcado">🔄 Remarcado</span>`;
-            if (c.proposta) badges += `<span class="checklist-badge proposta">📄 Proposta</span>`;
-            if (c.fechado) badges += `<span class="checklist-badge fechado">🏆 Fechado</span>`;
+            if (c.proposta) badges += `<span class="checklist-badge proposta">📄 Proposta${c.propostaValor ? ' · ' + formatCurrencyBRL(c.propostaValor) : ''}</span>`;
+            if (c.fechado) badges += `<span class="checklist-badge fechado">🏆 Fechado${c.fechadoValor ? ' · ' + formatCurrencyBRL(c.fechadoValor) : ''}</span>`;
             if (c.indicacao) badges += `<span class="checklist-badge indicacao">🤝 ${c.indicacaoQtd || 0} ${(c.indicacaoQtd || 0) === 1 ? 'indicação' : 'indicações'}</span>`;
             return badges ? `<div class="checklist-badges">${badges}</div>` : '';
         }
@@ -2536,6 +2552,23 @@
         // ===== MODAL: CHECKLIST + EDIÇÃO DO AGENDAMENTO =====
         let modalAppointmentIdx = null;
 
+        window.maskCurrencyInput = function(el) {
+            const digits = el.value.replace(/\D/g, '');
+            if (!digits) { el.value = ''; return; }
+            const reais = parseInt(digits, 10) / 100;
+            el.value = reais.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        };
+
+        function parseCurrencyValue(str) {
+            if (!str) return 0;
+            const digits = String(str).replace(/\D/g, '');
+            return digits ? parseInt(digits, 10) / 100 : 0;
+        }
+
+        function formatCurrencyBRL(value) {
+            return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
         window.openAppointmentModal = function(idx) {
             const apt = scheduleData.appointments[idx];
             if (!apt) return;
@@ -2561,6 +2594,10 @@
             document.getElementById('checkIndicacao').checked = c.indicacao;
             document.getElementById('indicationQty').value = c.indicacaoQtd || 1;
             document.getElementById('indicationQtyWrap').classList.toggle('show', c.indicacao);
+            document.getElementById('propostaValor').value = c.propostaValor ? formatCurrencyBRL(c.propostaValor) : '';
+            document.getElementById('propostaValorWrap').classList.toggle('show', c.proposta);
+            document.getElementById('fechadoValor').value = c.fechadoValor ? formatCurrencyBRL(c.fechadoValor) : '';
+            document.getElementById('fechadoValorWrap').classList.toggle('show', c.fechado);
 
             document.getElementById('appointmentModalOverlay').classList.add('show');
         };
@@ -2572,6 +2609,14 @@
 
         document.getElementById('checkIndicacao').addEventListener('change', (e) => {
             document.getElementById('indicationQtyWrap').classList.toggle('show', e.target.checked);
+        });
+
+        document.getElementById('checkProposta').addEventListener('change', (e) => {
+            document.getElementById('propostaValorWrap').classList.toggle('show', e.target.checked);
+        });
+
+        document.getElementById('checkFechado').addEventListener('change', (e) => {
+            document.getElementById('fechadoValorWrap').classList.toggle('show', e.target.checked);
         });
 
         window.saveAppointmentModal = function() {
@@ -2601,12 +2646,17 @@
             let indicacaoQtd = parseInt(document.getElementById('indicationQty').value, 10);
             if (!Number.isFinite(indicacaoQtd) || indicacaoQtd < 0) indicacaoQtd = 0;
 
+            const propostaChecked = document.getElementById('checkProposta').checked;
+            const fechadoChecked = document.getElementById('checkFechado').checked;
+
             apt.checklist = {
                 feita: document.getElementById('checkFeita').checked,
                 noShow: document.getElementById('checkNoShow').checked,
                 remarcado: document.getElementById('checkRemarcado').checked,
-                proposta: document.getElementById('checkProposta').checked,
-                fechado: document.getElementById('checkFechado').checked,
+                proposta: propostaChecked,
+                propostaValor: propostaChecked ? parseCurrencyValue(document.getElementById('propostaValor').value) : 0,
+                fechado: fechadoChecked,
+                fechadoValor: fechadoChecked ? parseCurrencyValue(document.getElementById('fechadoValor').value) : 0,
                 indicacao: indicacaoChecked,
                 indicacaoQtd: indicacaoChecked ? (indicacaoQtd || 1) : 0
             };
@@ -2725,14 +2775,14 @@
             });
 
             // ----- Cards de resumo -----
-            const totals = { total: filtered.length, feita: 0, noShow: 0, remarcado: 0, proposta: 0, fechado: 0, indicacoes: 0 };
+            const totals = { total: filtered.length, feita: 0, noShow: 0, remarcado: 0, proposta: 0, propostaValor: 0, fechado: 0, fechadoValor: 0, indicacoes: 0 };
             filtered.forEach(a => {
                 const c = getChecklist(a);
                 if (c.feita) totals.feita++;
                 if (c.noShow) totals.noShow++;
                 if (c.remarcado) totals.remarcado++;
-                if (c.proposta) totals.proposta++;
-                if (c.fechado) totals.fechado++;
+                if (c.proposta) { totals.proposta++; totals.propostaValor += (c.propostaValor || 0); }
+                if (c.fechado) { totals.fechado++; totals.fechadoValor += (c.fechadoValor || 0); }
                 if (c.indicacao) totals.indicacoes += (c.indicacaoQtd || 0);
             });
             const conversao = totals.feita > 0 ? Math.round((totals.fechado / totals.feita) * 100) : 0;
@@ -2743,13 +2793,17 @@
                 ['Reunião feita', totals.feita, dashColor('feita')],
                 ['No show', totals.noShow, dashColor('noShow')],
                 ['Remarcado', totals.remarcado, dashColor('remarcado')],
-                ['Proposta', totals.proposta, dashColor('proposta')],
-                ['Fechado', totals.fechado, dashColor('fechado')],
+                ['Proposta', totals.proposta, dashColor('proposta'), totals.propostaValor ? formatCurrencyBRL(totals.propostaValor) : null, 'var(--neon-blue)'],
+                ['Fechado', totals.fechado, dashColor('fechado'), totals.fechadoValor ? formatCurrencyBRL(totals.fechadoValor) : null, 'var(--neon-green)'],
                 ['Indicações', totals.indicacoes, dashColor('indicacao')],
                 ['Conversão (Fechado/Feita)', conversao + '%', 'var(--grad-end)']
             ];
-            tilesEl.innerHTML = tiles.map(([label, value, color]) =>
-                `<div class="stat-tile" style="border-top-color: ${color};"><div class="stat-tile-value" style="color: ${color};">${value}</div><div class="stat-tile-label">${label}</div></div>`
+            tilesEl.innerHTML = tiles.map(([label, value, color, subValue, subColor]) =>
+                `<div class="stat-tile" style="border-top-color: ${color};">
+                    <div class="stat-tile-value" style="color: ${color};">${value}</div>
+                    <div class="stat-tile-label">${label}</div>
+                    ${subValue ? `<div class="stat-tile-sub" style="color: ${subColor};">${subValue}</div>` : ''}
+                </div>`
             ).join('');
 
             // ----- Gráficos por mês (small multiples) -----
@@ -2782,7 +2836,10 @@
 
             metricDefs.forEach(m => {
                 const monthCounts = months.map(mk => filtered.filter(a => monthKey(a.date) === mk && getChecklist(a)[m.key]).length);
-                document.getElementById(`dashTotal-${m.key}`).textContent = `Total: ${monthCounts.reduce((a, b) => a + b, 0)}`;
+                let totalText = `Total: ${monthCounts.reduce((a, b) => a + b, 0)}`;
+                if (m.key === 'proposta' && totals.propostaValor) totalText += ` · ${formatCurrencyBRL(totals.propostaValor)}`;
+                if (m.key === 'fechado' && totals.fechadoValor) totalText += ` · ${formatCurrencyBRL(totals.fechadoValor)}`;
+                document.getElementById(`dashTotal-${m.key}`).textContent = totalText;
 
                 renderOrUpdateChart(`chartMonth-${m.key}`, {
                     type: 'bar',
