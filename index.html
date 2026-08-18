@@ -493,19 +493,20 @@
 
         .time-slots {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+            gap: 8px;
             margin-bottom: 20px;
         }
 
         .time-slot {
-            padding: 12px;
+            padding: 9px 6px;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: 6px;
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             font-weight: 700;
+            font-size: 0.85em;
             letter-spacing: 0.5px;
             font-family: 'Share Tech Mono', 'Courier New', Courier, monospace;
         }
@@ -519,8 +520,8 @@
         .time-slot.available:hover {
             background: var(--neon-green);
             color: #05060f;
-            transform: translateY(-2px);
-            box-shadow: 0 0 18px var(--neon-green);
+            transform: translateY(-1px);
+            box-shadow: 0 0 14px var(--neon-green);
         }
 
         .time-slot.booked {
@@ -754,6 +755,18 @@
 
         .toggle-btn.inactive {
             background: var(--btn-secondary-bg);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary {
+            background: var(--btn-secondary-bg);
+            color: var(--text-primary);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            box-shadow: none;
+            filter: brightness(1.1);
         }
 
         .empty-note {
@@ -1036,6 +1049,7 @@
 
         .modal-actions button.secondary {
             background: var(--btn-secondary-bg);
+            color: var(--text-primary);
         }
 
         /* ===== DASHBOARD ===== */
@@ -1231,7 +1245,8 @@
             }
 
             .time-slots {
-                grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+                gap: 6px;
             }
 
             .appointment-item {
@@ -1264,6 +1279,9 @@
                 </button>
                 <button class="sidebar-btn" onclick="switchMode('vendor')">
                     <span class="sidebar-btn-icon">👥</span><span class="sidebar-btn-label">Agendar Reunião</span>
+                </button>
+                <button class="sidebar-btn" onclick="switchMode('completed')">
+                    <span class="sidebar-btn-icon">✅</span><span class="sidebar-btn-label">Realizados</span>
                 </button>
                 <button class="sidebar-btn" onclick="switchMode('consultants')">
                     <span class="sidebar-btn-icon">🧑‍💼</span><span class="sidebar-btn-label">Consultores</span>
@@ -1308,7 +1326,7 @@
                 <div id="dayDetail" style="display: none;">
                     <h3 id="selectedDate" style="margin-bottom: 20px; color: var(--grad-start); font-size: 1.3em;"></h3>
                     <div class="time-slots" id="timeSlotsContainer"></div>
-                    <button id="ownerBackBtn" onclick="closeDetail()" style="background: var(--btn-secondary-bg);">Voltar</button>
+                    <button id="ownerBackBtn" class="btn-secondary" onclick="closeDetail()">Voltar</button>
                 </div>
 
                 <div class="appointments-list" id="appointmentsList" style="display: none;">
@@ -1385,13 +1403,20 @@
                         <button onclick="confirmBooking()">Confirmar Agendamento</button>
                     </div>
 
-                    <button id="vendorBackBtn" onclick="closeVendorDetail()" style="background: var(--btn-secondary-bg); margin-top: 15px;">Voltar</button>
+                    <button id="vendorBackBtn" class="btn-secondary" onclick="closeVendorDetail()" style="margin-top: 15px;">Voltar</button>
                 </div>
 
                 <div class="appointments-list" id="vendorAppointmentsList" style="display: none;">
                     <h3 style="margin-bottom: 20px; color: var(--text-primary);">Seus Agendamentos</h3>
                     <div id="vendorAppointmentsContainer"></div>
                 </div>
+            </section>
+
+            <!-- MODO REALIZADOS -->
+            <section id="completed" class="section">
+                <h3 style="margin-bottom: 20px; color: var(--text-primary);">Reuniões Realizadas</h3>
+                <p id="completedAppointmentsEmpty" class="empty-note" style="display: none;">Nenhuma reunião marcada como "Reunião feita" ainda. Marque pelo checklist, em Minha Agenda, clicando no nome do cliente.</p>
+                <div id="completedAppointmentsContainer"></div>
             </section>
 
             <!-- MODO CONSULTORES -->
@@ -1598,6 +1623,8 @@
         let vendorSelectedTime = null;
         let ownerViewMode = 'month';
         let vendorViewMode = 'month';
+        let ownerDrilledDay = null;
+        let vendorDrilledDay = null;
 
         const BUSINESS_HOURS = [
             '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
@@ -1684,6 +1711,7 @@
             renderOwnerCalendar();
             renderVendorCalendar();
             updateOwnerAppointmentsList();
+            updateCompletedAppointmentsList();
             updateVendorAppointmentsList();
             renderConsultores();
             populateVendorConsultorSelect();
@@ -1809,6 +1837,13 @@
         }
 
         function renderOwnerCalendar() {
+            // Se o admin entrou manualmente em um dia (a partir do grid), mantém o painel de horários
+            // aberto até ele clicar em "Voltar" — não deixa uma atualização em tempo real fechar sozinho.
+            if (ownerDrilledDay) {
+                renderTimeSlots(ownerDrilledDay);
+                return;
+            }
+
             if (ownerViewMode === 'day') {
                 document.getElementById('calendarGrid').style.display = 'none';
                 document.getElementById('dayDetail').style.display = 'block';
@@ -1832,12 +1867,14 @@
             ownerViewMode = mode;
             selectedDay = null;
             selectedTime = null;
+            ownerDrilledDay = null;
             document.querySelectorAll('#ownerViewSwitcher .view-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
             renderOwnerCalendar();
         };
 
         window.selectDay = function(dateStr) {
             selectedDay = dateStr;
+            ownerDrilledDay = dateStr;
             const dayDate = new Date(dateStr + 'T00:00:00');
             document.getElementById('selectedDate').textContent =
                 dayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
@@ -1902,49 +1939,72 @@
         window.closeDetail = function() {
             selectedDay = null;
             selectedTime = null;
+            ownerDrilledDay = null;
             renderOwnerCalendar();
         };
 
+        function buildAppointmentCardHtml(apt) {
+            const dayDate = new Date(apt.date + 'T00:00:00');
+            const dayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+
+            const formatClass = apt.format ? apt.format.toLowerCase() : '';
+            const formatLabel = apt.format || 'Reunião';
+
+            // Índice real no array não ordenado (o mesmo que é salvo no Firebase) — não usar a posição da lista ordenada
+            const realIdx = scheduleData.appointments.indexOf(apt);
+
+            return `<div class="appointment-item">
+                <div class="appointment-info">
+                    <div class="appointment-time">${dayName} às ${apt.time} - ${addMinutes(apt.time, MEETING_DURATION_MINUTES)}</div>
+                    <div class="appointment-name clickable" onclick="openAppointmentModal(${realIdx})" title="Clique para ver/editar o checklist e os dados da reunião">👤 Cliente: ${apt.clientName || 'N/A'} ✏️</div>
+                    <div class="appointment-email">💼 Consultor: ${apt.consultor || 'N/A'}</div>
+                    <div class="appointment-email">✉️ ${apt.email}</div>
+                    <div class="meeting-type ${formatClass}">📋 ${formatLabel}</div>
+                    ${apt.notes ? `<div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;">📝 ${apt.notes}</div>` : ''}
+                    ${apt.meetLink ? `<div style="margin-top: 5px;"><a href="${apt.meetLink}" target="_blank" rel="noopener" style="color: var(--neon-blue); font-weight: 600;">🔗 Entrar no Google Meet</a></div>` : ''}
+                    ${renderChecklistBadges(apt)}
+                </div>
+                <button class="delete-btn" onclick="deleteAppointment(${realIdx})">Deletar</button>
+            </div>`;
+        }
+
         function updateOwnerAppointmentsList() {
             const container = document.getElementById('appointmentsContainer');
-            if (scheduleData.appointments.length === 0) {
+            const pending = scheduleData.appointments.filter(a => !getChecklist(a).feita);
+
+            if (pending.length === 0) {
                 document.getElementById('appointmentsList').style.display = 'none';
                 return;
             }
 
             document.getElementById('appointmentsList').style.display = 'block';
 
-            const sorted = [...scheduleData.appointments].sort((a, b) => {
+            const sorted = pending.sort((a, b) => {
                 return new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time);
             });
 
-            let html = '';
-            sorted.forEach((apt) => {
-                const dayDate = new Date(apt.date + 'T00:00:00');
-                const dayName = dayDate.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
+            container.innerHTML = sorted.map(buildAppointmentCardHtml).join('');
+        }
 
-                const formatClass = apt.format ? apt.format.toLowerCase() : '';
-                const formatLabel = apt.format || 'Reunião';
+        function updateCompletedAppointmentsList() {
+            const container = document.getElementById('completedAppointmentsContainer');
+            if (!container) return;
 
-                // Índice real no array não ordenado (o mesmo que é salvo no Firebase) — não usar a posição da lista ordenada
-                const realIdx = scheduleData.appointments.indexOf(apt);
+            const completed = scheduleData.appointments.filter(a => getChecklist(a).feita);
 
-                html += `<div class="appointment-item">
-                    <div class="appointment-info">
-                        <div class="appointment-time">${dayName} às ${apt.time} - ${addMinutes(apt.time, MEETING_DURATION_MINUTES)}</div>
-                        <div class="appointment-name clickable" onclick="openAppointmentModal(${realIdx})" title="Clique para ver/editar o checklist e os dados da reunião">👤 Cliente: ${apt.clientName || 'N/A'} ✏️</div>
-                        <div class="appointment-email">💼 Consultor: ${apt.consultor || 'N/A'}</div>
-                        <div class="appointment-email">✉️ ${apt.email}</div>
-                        <div class="meeting-type ${formatClass}">📋 ${formatLabel}</div>
-                        ${apt.notes ? `<div style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;">📝 ${apt.notes}</div>` : ''}
-                        ${apt.meetLink ? `<div style="margin-top: 5px;"><a href="${apt.meetLink}" target="_blank" rel="noopener" style="color: var(--neon-blue); font-weight: 600;">🔗 Entrar no Google Meet</a></div>` : ''}
-                        ${renderChecklistBadges(apt)}
-                    </div>
-                    <button class="delete-btn" onclick="deleteAppointment(${realIdx})">Deletar</button>
-                </div>`;
+            if (completed.length === 0) {
+                document.getElementById('completedAppointmentsEmpty').style.display = 'block';
+                container.innerHTML = '';
+                return;
+            }
+
+            document.getElementById('completedAppointmentsEmpty').style.display = 'none';
+
+            const sorted = [...completed].sort((a, b) => {
+                return new Date(b.date + ' ' + b.time) - new Date(a.date + ' ' + a.time);
             });
 
-            container.innerHTML = html;
+            container.innerHTML = sorted.map(buildAppointmentCardHtml).join('');
         }
 
         // ===== CHECKLIST DE PROCESSO (preenchido pelo admin/gestor) =====
@@ -2182,6 +2242,13 @@
         }
 
         function renderVendorCalendar() {
+            // Se o cliente/vendedor entrou manualmente em um dia (a partir do grid), mantém o painel de
+            // horários aberto até clicar em "Voltar" — não deixa uma atualização em tempo real fechar sozinho.
+            if (vendorDrilledDay) {
+                renderVendorTimeSlots(vendorDrilledDay);
+                return;
+            }
+
             if (vendorViewMode === 'day') {
                 document.getElementById('vendorCalendarGrid').style.display = 'none';
                 document.getElementById('vendorDayDetail').style.display = 'block';
@@ -2205,12 +2272,14 @@
             vendorViewMode = mode;
             vendorSelectedDay = null;
             vendorSelectedTime = null;
+            vendorDrilledDay = null;
             document.querySelectorAll('#vendorViewSwitcher .view-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
             renderVendorCalendar();
         };
 
         window.vendorSelectDay = function(dateStr) {
             vendorSelectedDay = dateStr;
+            vendorDrilledDay = dateStr;
             const dayDate = new Date(dateStr + 'T00:00:00');
             document.getElementById('vendorSelectedDate').textContent =
                 dayDate.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase();
@@ -2287,8 +2356,9 @@
 
             if (!isRangeAvailable(vendorSelectedDay, vendorSelectedTime)) {
                 showAlert('Desculpe, este horário não está mais disponível', 'error', 'vendorAlert');
-                closeVendorDetail();
-                renderVendorCalendar();
+                vendorSelectedTime = null;
+                document.getElementById('vendorBookingForm').style.display = 'none';
+                renderVendorTimeSlots(vendorSelectedDay);
                 return;
             }
 
@@ -2321,8 +2391,9 @@
             document.getElementById('meetingFormat').value = '';
             document.getElementById('meetingNotes').value = '';
 
-            closeVendorDetail();
-            renderVendorCalendar();
+            vendorSelectedTime = null;
+            document.getElementById('vendorBookingForm').style.display = 'none';
+            renderVendorTimeSlots(vendorSelectedDay);
             updateVendorAppointmentsList();
             updateOwnerAppointmentsList();
         };
@@ -2371,6 +2442,7 @@
         window.closeVendorDetail = function() {
             vendorSelectedDay = null;
             vendorSelectedTime = null;
+            vendorDrilledDay = null;
             document.getElementById('vendorBookingForm').style.display = 'none';
             renderVendorCalendar();
         };
@@ -2435,6 +2507,8 @@
                 renderDashboard();
             } else if (mode === 'consultants') {
                 renderConsultores();
+            } else if (mode === 'completed') {
+                updateCompletedAppointmentsList();
             } else {
                 renderOwnerCalendar();
             }
